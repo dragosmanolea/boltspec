@@ -9,3 +9,6 @@ src/torque-data.json
 
 # deploy build output
 deploy/*.zip
+
+# Service data card (built by tools/build-service-data.js): kept private like the torque dataset
+src/service-data.json

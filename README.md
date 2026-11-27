@@ -8,6 +8,10 @@ No accounts. Newsletter for update announcements. Buy Me a Coffee button for don
 > **Data file not in this repo.** `src/torque-data.json` (the ISTA dataset) is git-ignored on purpose,
 > so the full dataset never ends up on GitHub. Copy it into `src/` from your local copy or the server
 > before running or packing; the app will not start without it.
+>
+> `src/service-data.json` (per-engine service data from a 1997 data book: BMW "Engine data" tab and the classic-car
+> pages) is git-ignored the same way. It is optional: without it the site runs without those parts. Rebuild it with
+> `node tools/build-service-data.js haynes-data.json --makes=BMW --classic`.
 
 - **Mac:** double-click `start.command` (needs Docker Desktop). `stop.command` stops it.
 - **Manually:** `cp .env.example .env`, edit it, then `docker compose up -d --build`.
@@ -40,11 +44,13 @@ Open `http://localhost:3090/`. Admin: `/admin/` (user `admin`, password = `ADMIN
 server.js          routes, token/encryption endpoint, newsletter, admin
 src/data.js        per-series slices of the dataset, SEO data
 src/torque.js      spec lookup by part category (popular specs per page)
+src/classic.js     classic cars (other makes, 1980–1997): make/model index and encrypted model payloads
 src/db.js          PostgreSQL: subscribers, campaigns, issued watermarks, batched inserts
 src/analytics.js   cookieless analytics: beacon handling and dashboard report
 src/mail.js        SMTP / log mode, templates, throttled campaigns
 views/             server-rendered pages + the inline loader
-public/assets/     torque module (app.js), shell, styles, icons
+public/assets/     torque module (app.js), shell, styles, icons, svcdata.js (per-engine service data view)
+tools/             build-service-data.js + classic-families.js: build src/service-data.json from the extracted data book
 ```
 
 ## Anti-cloning

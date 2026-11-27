@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
 <script>window.BS={{BS}};</script>
 <script src="/assets/shell.js?v={{V}}"></script>
+<script src="/assets/svcdata.js?v={{V}}"></script>
 <script type="application/ld+json">{{LD}}</script>
 </head>
 <body data-module="torque" class="m-torque">
@@ -73,6 +74,7 @@
     <div class="tabs noprint" role="tablist" aria-label="Sections">
       <button class="tab" role="tab" aria-selected="true" aria-controls="tabTorque" data-t="tabTorque">Torques<span class="lg"> </span></button>
       <button class="tab" role="tab" aria-selected="false" aria-controls="tabService" data-t="tabService"><span class="lg">Service plan</span><span class="xs">Service</span></button>
+      <button class="tab hide" role="tab" aria-selected="false" aria-controls="tabEngine" data-t="tabEngine" id="tabEngineBtn"><span class="lg">Engine data</span><span class="xs">Engine</span></button>
     </div>
 
     <section id="tabTorque" role="tabpanel">
@@ -100,6 +102,7 @@
       <div class="print-only phead"><h1>Service checklist — <span id="pCar"></span></h1><div id="pMeta"></div></div>
       <div class="card">
         <h2>Service plan — <span id="svcCar"></span></h2>
+        <p class="noprint hide sd-link" id="svcEngLink"><button type="button" class="btn sec">Tune-up data per engine: ignition, valve clearances, tyre pressures, capacities →</button></p>
         <div class="warn noprint">Indicative intervals. If the dashboard (CBS) or ISTA says otherwise, follow the dashboard. Capacities come from ISTA technical data.</div>
         <div class="inputs noprint" style="margin-top:14px">
           <label>Odometer (km) <input id="kmNow" type="number" inputmode="numeric" min="0" step="1000" placeholder="e.g. 145000"></label>
@@ -122,6 +125,15 @@
       </div>
       <div class="phbox noprint" style="margin-top:16px"><h4><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-save"/></svg> Full backup <span class="phint">favourites and VINs in one file (to move them to another device or keep them safe)</span></h4>
           <div class="chips"><button class="btn sec" id="bkExp"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-download"/></svg> Download backup</button><button class="btn sec" id="bkImpB"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-upload"/></svg> Restore backup</button><input type="file" id="bkImp" accept=".json" class="hide"></div></div>
+    </section>
+
+    <section id="tabEngine" class="hide" role="tabpanel">
+      <div class="card sd-host">
+        <h2>Engine data — <span id="sdCar"></span></h2>
+        <p class="muted" style="font-size:13.5px;margin:0 0 8px">Tune-up data, torque settings and capacities for each engine, from a 1997 automotive technical data book (separate from the ISTA values in the other tabs).</p>
+        <p class="hint" id="sdNote" style="margin:0 0 8px"></p>
+        <div id="sdBox"></div>
+      </div>
     </section>
   </div>
 </main>
