@@ -1,0 +1,169 @@
+/* BoltSpec – brand layer on top of brand.css (shared "Industrial workshop" system) */
+
+/* wordmark: Archivo condensed, "SPEC" in the accent */
+.b-wm{font:800 21px/1 var(--font-ui);font-stretch:75%;letter-spacing:.04em;color:var(--shell-ink,#f4f4f2);white-space:nowrap}
+.b-wm b{color:var(--accent);font-weight:800}
+.b-tag{color:var(--shell-mute,#a9afb6);font-size:13px;white-space:nowrap;margin-left:4px}
+@media (max-width:899px){.b-tag{display:none}.b-wm{font-size:18px}}
+
+/* "Buy me a coffee" */
+.b-coffee{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:4px;background:#ffdd00;color:#1b1e22;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}
+.b-coffee:hover{background:#ffe633}
+.b-coffee:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.b-coffee .u-i{width:18px;height:18px}
+@media (max-width:899px){.b-coffee--head span{display:none}.b-coffee--head{padding:0 10px}}
+
+/* footer: newsletter + coffee + meta */
+.b-foot .u-foot__in{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px 40px;align-items:start}
+.b-foot h2{font-size:18px;font-stretch:87.5%;margin:0 0 8px;color:var(--ink)}
+.b-foot p{margin:0 0 10px}
+.b-foot__meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 24px;align-items:baseline;border-top:var(--hair);padding-top:14px}
+@media (max-width:760px){.b-foot .u-foot__in{grid-template-columns:minmax(0,1fr)}}
+.b-news__row{display:flex;gap:8px;max-width:520px}
+.b-news input{flex:1;min-width:0;min-height:44px;padding:0 12px;border:var(--hair-strong,1px solid #8a9097);border-radius:4px;background:var(--surface);color:var(--ink);font:inherit}
+.b-news__fine{font-size:13px;color:var(--mute);margin-top:8px!important}
+.b-news__msg{font-size:14px;color:var(--ink-2);min-height:20px}
+
+/* home */
+.bs-hero{padding:40px 0 24px}
+.bs-hero h1{font-size:clamp(34px,6vw,58px);line-height:1.02;font-stretch:75%;letter-spacing:-.01em;margin:0 0 14px}
+.bs-hero__lead{font-size:clamp(17px,2.2vw,20px);line-height:1.5;color:var(--ink-2);max-width:62ch;margin:0 0 22px}
+.bs-facts{display:flex;flex-wrap:wrap;gap:12px 36px;list-style:none;padding:0;margin:0}
+.bs-facts li{display:flex;flex-direction:column}
+.bs-facts b{font-size:30px;line-height:1.1}
+.bs-facts span{font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.bs-search{display:flex;align-items:center;gap:10px;border:var(--hair-strong,1px solid #8a9097);border-radius:4px;padding:0 12px;background:var(--surface);margin-bottom:18px}
+.bs-search input{flex:1;min-height:48px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:17px;outline:none}
+.bs-search:focus-within{outline:3px solid var(--accent);outline-offset:1px}
+.bs-brand h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin:18px 0 8px}
+.bs-cars{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;list-style:none;padding:0;margin:0}
+.bs-cars a{display:flex;gap:10px;align-items:baseline;padding:10px 12px;min-height:44px;border:var(--hair);border-radius:4px;text-decoration:none;color:var(--ink);background:var(--surface)}
+.bs-cars a:hover{border-color:var(--accent)}
+.bs-cars a b{font-size:16px}
+.bs-cars a span{font-size:14px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bs-none{color:var(--ink-2)}
+.bs-why{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:24px 0 8px}
+.bs-why h3{font-size:18px;font-stretch:87.5%;margin:0 0 6px}
+.bs-why p{margin:0;color:var(--ink-2);line-height:1.5}
+
+/* car page: server-rendered summary above the module */
+.bs-seo{margin-bottom:12px}
+.bs-seo__lead{margin:0;color:var(--ink-2)}
+.bs-seo__pop summary{cursor:pointer;margin-top:8px;font-weight:600;min-height:32px;display:flex;align-items:center}
+.bs-pop{border-collapse:collapse;width:100%;margin-top:6px;font-size:14px}
+.bs-pop td{padding:6px 8px;border-top:var(--hair)}
+.bs-pop td.v{text-align:right;white-space:nowrap;font-weight:700}
+.bs-seo__fine{font-size:13px;color:var(--mute);margin:6px 0 0}
+#bsLoad{display:flex;gap:10px;align-items:center;color:var(--ink-2)}
+
+/* about / messages / admin */
+.bs-doc{max-width:78ch}
+.bs-doc h2{font-size:21px;font-stretch:87.5%;margin:26px 0 8px}
+.bs-doc p,.bs-doc li{line-height:1.6;color:var(--ink-2)}
+.bs-msg{max-width:60ch}
+.bs-admin .u-panel{margin-top:16px}
+.bs-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.bs-cols{grid-template-columns:1fr}}
+.bs-admin textarea,.bs-admin input,.bs-admin select{font:inherit;color:var(--ink);background:var(--surface);border:var(--hair-strong,1px solid #8a9097);border-radius:4px;padding:8px 10px;width:100%}
+.bs-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.bs-row input,.bs-row select{width:auto;min-width:200px}
+
+/* ---------- admin analytics ---------- */
+.bs-an__top { align-items: center; gap: 12px; }
+.bs-an__top .u-h1 { margin: 0; }
+.bs-an__live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mute); }
+.bs-an__live i { width: 8px; height: 8px; border-radius: 50%; background: #22a06b; box-shadow: 0 0 0 3px rgba(34, 160, 107, .2); }
+.bs-an__kpi { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 700px) { .bs-an__kpi { grid-template-columns: repeat(2, 1fr); } }
+.bs-an__d { display: block; font-size: 12px; font-weight: 600; margin-top: 2px; }
+.bs-an__d.up { color: #1f8a5b; } .bs-an__d.down { color: #c4302b; }
+.bs-an__chart svg { width: 100%; height: auto; display: block; }
+.bs-an__chart .bar { fill: var(--accent, #1c69d4); }
+.bs-an__chart .bar:hover { opacity: .75; }
+.bs-an__chart .grid { stroke: currentColor; opacity: .1; }
+.bs-an__chart text { font-size: 11px; fill: currentColor; opacity: .6; }
+.bs-an__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+.bs-an__grid .u-panel { margin: 0; overflow-x: auto; }
+.bs-an__lbl { position: relative; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-an__lbl i { position: absolute; inset: 3px auto 3px 0; background: var(--accent, #1c69d4); opacity: .1; border-radius: 3px; }
+.bs-an__lbl span { position: relative; }
+.bs-an__note { font-size: 13px; margin: 20px 0; }
+@media (max-width: 480px) { .bs-an__grid { grid-template-columns: 1fr; } }
+
+/* ---------- header menu: one shared 16px left edge for labels, tabs and links ---------- */
+.u-menu { padding: 6px 0; width: 280px; max-width: calc(100vw - 16px); }
+.u-menu__grp { padding: 10px 16px 6px; }
+.u-menu__lbl { display: block; margin: 0 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--mute); }
+.u-menu .u-seg { margin: 0; gap: 0; }
+.u-menu .u-seg button { flex: 1 1 0; padding: 0 6px; text-align: center; font-size: 14px; }
+.u-menu__links { border-top: var(--hair); margin-top: 8px; padding-top: 6px; }
+.u-menu__links a { padding: 0 16px; }
+.u-menu__links a[href*="buymeacoffee"] { font-weight: 600; }
+.u-menu__links a[href*="buymeacoffee"] .u-i, .u-menu__links a[href*="buymeacoffee"] svg { color: #b58900; }
+@media (max-width: 899px) { .u-shell #u-menubtn { display: inline-flex; } }
+.bs-warn { margin: 0 0 16px; padding: 12px 16px; border-radius: var(--r-2); background: #fff4cc; color: #4a3b00; border: 1px solid #f2d36b; }
+:root[data-theme=dark] .bs-warn { background: #3a3000; color: #ffe9a3; border-color: #6b5800; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .bs-warn { background: #3a3000; color: #ffe9a3; border-color: #6b5800; } }
+
+/* ---------- admin polish (UI audit) ---------- */
+.bs-admin .u-form { max-width: none; }
+.bs-admin .bs-row input, .bs-admin .bs-row select { min-width: 0; flex: 1 1 200px; }
+.bs-admin .u-table .num { text-align: right; }
+.bs-admin .u-table th.num { font-family: inherit; }
+.bs-an a, .bs-admin .u-table a { color: var(--accent); }
+.bs-an__grid { margin-top: 16px; }
+.bs-an__top select { height: 40px; }
+/* admin pages don't need the public-site chrome */
+body[data-module=admin] .u-foot, body[data-module=admin] .u-carbtn, body[data-module=admin] .b-coffee--head { display: none; }
+@media (max-width: 600px) {
+  #subs td:nth-child(4), #subs th:nth-child(4) { display: none; }
+  .bs-an__chart text { font-size: 10px; }
+}
+
+/* ---------- UI/UX audit fixes ---------- */
+/* footer coffee button: the generic footer link rule must not restyle it */
+.u-foot a.b-coffee { color: #1b1e22; text-decoration: none; padding: 0 14px; }
+.b-foot__coffee p { font-size: 14px; color: var(--ink-2); }
+/* header: the car button may shrink; no underline */
+.u-carbtn { min-width: 0; flex: 0 1 auto; text-decoration: none; }
+@media (max-width: 380px) { .u-carbtn .t { display: none; } }
+/* links inside content use the accent colour, not the browser default */
+main a:not([class]) { color: var(--accent-text); text-underline-offset: 3px; }
+/* there is no bottom tab bar in BoltSpec: drop the space reserved for it */
+@media (max-width: 899px) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .u-foot__in { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  .u-toast { bottom: calc(16px + env(safe-area-inset-bottom)); }
+}
+/* car page: the shared footer must not pick up the module's generic footer rule */
+body.m-torque footer.u-foot { max-width: none; padding: 0; }
+body.m-torque #hdr .search kbd { top: calc(50% + 13px); }
+/* skip link becomes visible on focus */
+.u-sr:focus { position: fixed !important; width: auto; height: auto; clip: auto; top: 8px; left: 8px; z-index: 100; padding: 8px 12px; background: var(--surface); color: var(--ink); border: 2px solid var(--focus); }
+/* "Common torque specs" looks expandable */
+.bs-seo__pop summary { list-style: none; gap: 8px; min-height: 44px; }
+.bs-seo__pop summary::-webkit-details-marker { display: none; }
+.bs-seo__pop summary::before { content: "▸"; transition: transform .15s; }
+.bs-seo__pop[open] summary::before { transform: rotate(90deg); }
+.bs-pop td:first-child { padding-left: 0; } .bs-pop td.v { padding-right: 0; }
+/* home: long car names wrap instead of being cut */
+.bs-cars a span { white-space: normal; overflow: visible; }
+@media (max-width: 600px) { .bs-facts { display: grid; grid-template-columns: repeat(3, auto); gap: 12px 20px; } .bs-facts b { font-size: 24px; } }
+/* newsletter error state */
+.b-news__msg.is-err { color: var(--danger); font-weight: 600; }
+.b-news input[aria-invalid=true] { border-color: var(--danger); }
+/* toast with a close button */
+.u-toast { display: flex; align-items: center; gap: 10px; width: max-content; max-width: min(92vw, 440px); }
+.u-toast a { color: #ffdd00; font-weight: 700; }
+.u-toast__x { border: 0; background: none; color: inherit; cursor: pointer; padding: 6px; margin: -6px -6px -6px 4px; }
+/* selected group: secondary text stays readable */
+.tile.on .en, .tile.on .cnt, .zl .on .en, .zl .on .cnt, .zlist button.on .cnt { color: inherit; opacity: .9; }
+/* touch targets */
+@media (pointer: coarse) {
+  .b-coffee { min-height: 44px; }
+  .b-foot__meta a { display: inline-block; padding: 12px 0; }
+  #crumbs button, summary { min-height: 44px; }
+}
+/* message and 404 pages: centred card */
+.bs-msg { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; padding-top: 48px; padding-bottom: 48px; }
+.bs-doc h2 { margin: 32px 0 6px; } .bs-doc h2 + p { margin-top: 0; }

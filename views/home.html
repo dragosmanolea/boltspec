@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/brand.css?v={{V}}">
+<link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
+<script>window.BS={{BS}};</script>
+<script src="/assets/shell.js?v={{V}}"></script>
+<title>BoltSpec · Tightening torques for BMW, MINI & Rolls-Royce</title>
+<meta name="description" content="Free tightening torques, service intervals and fluid capacities for every BMW, MINI and Rolls-Royce series, from the official BMW ISTA documentation.">
+<link rel="canonical" href="{{CANON}}">
+<meta property="og:title" content="BoltSpec · Tightening torques for BMW, MINI & Rolls-Royce">
+<meta property="og:description" content="Free tightening torques, service intervals and fluid capacities for every BMW, MINI and Rolls-Royce series.">
+<meta property="og:type" content="website">
+</head>
+<body data-module="home">
+<div id="u-shell"></div>
+<main id="main" class="u-wrap">
+  <section class="bs-hero">
+    <h1>Every bolt. The right torque.</h1>
+    <p class="bs-hero__lead">Tightening torques, service intervals and fluid capacities for BMW, MINI and Rolls-Royce. From the official BMW ISTA documentation, free.</p>
+    <ul class="bs-facts"><li><b class="mono">{{NSPECS}}</b><span>torque specs</span></li><li><b class="mono">{{NCARS}}</b><span>series</span></li><li><b class="mono">0</b><span>ads or sign-ups</span></li></ul>
+  </section>
+  <section class="u-panel bs-find" id="cars" aria-labelledby="cars-h">
+    <div class="u-panel__head"><h2 id="cars-h">Find your car</h2></div>
+    <label class="u-sr" for="carq">Search by chassis code or model</label>
+    <div class="bs-search"><svg class="u-i" aria-hidden="true"><use href="/assets/icons.svg#i-search"/></svg><input id="carq" type="search" placeholder="Chassis code or model: F30, E90, X5, Cooper" autocomplete="off" spellcheck="false"></div>
+    <p class="bs-none" id="carnone" hidden>No car matches. Try the chassis code, e.g. F10 or E46.</p>
+    <div class="bs-brands">{{CARS}}</div>
+  </section>
+  <section class="bs-why">
+    <div><h3>Every bolt in the car</h3><p>Brakes, suspension, engine, body: grouped like the workshop manual, searchable by part name or thread size.</p></div>
+    <div><h3>Service plan</h3><p>Oil, filters, spark plugs, brake fluid: the intervals for your car, with fluid capacities and a printable checklist.</p></div>
+    <div><h3>Made for the garage</h3><p>Works on your phone with greasy hands: big numbers, tap to copy, favourites and your own part photos.</p></div>
+  </section>
+</main>
+<script>
+// filter the car list as you type
+const q = document.getElementById('carq'), links = [...document.querySelectorAll('.bs-cars a')];
+q.addEventListener('input', () => {
+  const v = q.value.trim().toLowerCase().replace(/\s+/g, ' ');
+  let n = 0;
+  links.forEach((a) => { const on = !v || a.dataset.q.includes(v) || a.dataset.q.replace(/\s/g, '').includes(v.replace(/\s/g, '')); a.parentElement.hidden = !on; if (on) n++; });
+  document.querySelectorAll('.bs-brand').forEach((s) => { s.hidden = ![...s.querySelectorAll('li')].some((li) => !li.hidden); });
+  document.getElementById('carnone').hidden = n > 0;
+});
+q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const a = links.find((x) => !x.parentElement.hidden); if (a) location.href = a.href; } });
+</script>
+</body>
+</html>

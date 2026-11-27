@@ -1,0 +1,11 @@
+node_modules/
+data/
+.env
+local-data/
+.DS_Store
+
+# ISTA dataset: never committed (the site's anti-cloning relies on it staying private)
+src/torque-data.json
+
+# deploy build output
+deploy/*.zip

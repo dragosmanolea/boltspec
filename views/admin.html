@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Admin · BoltSpec</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/brand.css?v={{V}}">
+<link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
+<script>window.BS={{BS}};</script>
+<script src="/assets/shell.js?v={{V}}"></script>
+</head>
+<body data-module="admin">
+<div id="u-shell"></div>
+<main id="main" class="u-wrap bs-admin">
+  <div class="bs-row"><h1 class="u-h1">Admin</h1><span class="u-shell__spacer"></span><a class="u-btn u-btn--primary u-btn--sm" href="/admin/analytics/">Analytics</a></div>
+  <p class="bs-warn" id="bmcWarn" hidden></p>
+  <div class="u-stats" id="stats"></div>
+
+  <section class="u-panel">
+    <div class="u-panel__head"><h2>Send an update</h2><span class="sub" id="mailmode"></span></div>
+    <form class="u-form" id="compose">
+      <label for="sub">Subject</label><input id="sub" maxlength="200" required>
+          <label for="body">Message</label><textarea id="body" rows="9" required placeholder="Plain text. Leave an empty line between paragraphs. Links become clickable."></textarea>
+      <div class="bs-row">
+        <input id="test" type="email" placeholder="Send a test to…" aria-label="Test address">
+        <button class="u-btn u-btn--secondary" type="button" id="sendTest">Send test</button>
+        <span class="u-shell__spacer"></span>
+        <button class="u-btn u-btn--primary" type="submit" id="sendAll">Send to all confirmed subscribers</button>
+      </div>
+      <p class="u-err" id="cErr" role="alert"></p>
+      <p id="progress" role="status"></p>
+    </form>
+  </section>
+
+  <section class="u-panel">
+    <div class="u-panel__head"><h2>Subscribers</h2><a class="u-btn u-btn--ghost u-btn--sm" href="/admin/api/subscribers.csv">Export confirmed (CSV)</a></div>
+    <div class="bs-row"><input id="q" type="search" placeholder="Search e-mail" aria-label="Search e-mail"><select id="st" aria-label="Status"><option value="">All</option><option value="confirmed">Confirmed</option><option value="pending">Pending</option><option value="unsubscribed">Unsubscribed</option></select></div>
+    <div class="u-scroll"><table class="u-table" id="subs"></table></div>
+  </section>
+
+  <section class="u-panel">
+    <div class="u-panel__head"><h2>Sent updates</h2></div>
+    <div class="u-scroll"><table class="u-table" id="camps"></table></div>
+  </section>
+
+  <section class="u-panel">
+    <div class="u-panel__head"><h2>Recent e-mails</h2></div>
+    <div class="u-scroll"><table class="u-table" id="recent"></table></div>
+  </section>
+
+  <section class="u-panel">
+    <div class="u-panel__head"><h2>Trace a copy</h2></div>
+    <p id="traceTxt"></p>
+    <div class="bs-row"><input id="mark" placeholder="bsXXXXXXXXXX" aria-label="Mark"><button class="u-btn u-btn--secondary" id="traceBtn" type="button">Look up</button></div>
+    <div class="u-scroll"><table class="u-table" id="trace"></table></div>
+  </section>
+</main>
+<script>
+const $ = (s) => document.querySelector(s), esc = UShell.esc;
+const S = (v) => `<td>${esc(v)}</td>`;
+const dt = (t) => (t ? new Date(t).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '–');
+const api = async (method, url, body) => { const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); return { ok: r.ok, data: await r.json().catch(() => ({})) }; };
+async function stats() {
+  const { data: s } = await api('GET', '/admin/api/stats');
+  $('#stats').innerHTML = [['Confirmed', s.confirmed], ['New this week', s.week], ['Pending', s.pending], ['Unsubscribed', s.unsubscribed]].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  $('#mailmode').textContent = s.mail === 'smtp' ? 'E-mail: SMTP connected' : 'E-mail: SMTP not set, nothing is really sent';
+  const c = s.campaign || {};
+  $('#progress').textContent = c.running ? `Sending: ${c.sent + c.failed} of ${c.total} (${c.failed} failed)…` : c.id ? `Last update: ${c.sent} sent, ${c.failed} failed.` : '';
+  $('#sendAll').disabled = !!c.running;
+  $('#recent').innerHTML = '<tr><th>When</th><th>To</th><th>Type</th><th>Subject</th><th>Status</th></tr>' + (c.recent || []).map((m) => `<tr><td class="num">${dt(m.at)}</td>${S(m.to)}<td>${esc(m.kind)}</td><td title="${esc(m.text)}">${esc(m.subject)}</td><td>${esc(m.status)}</td></tr>`).join('');
+  if (c.running) setTimeout(stats, 2000);
+}
+async function subs() {
+  const { data } = await api('GET', `/admin/api/subscribers?q=${encodeURIComponent($('#q').value)}&status=${$('#st').value}`);
+  $('#subs').innerHTML = '<tr><th>E-mail</th><th>Status</th><th>Signed up</th><th>Confirmed</th><th></th></tr>' + (data.length ? '' : `<tr><td colspan="5">No subscribers match.</td></tr>`) + data.map((s) => `<tr>${S(s.email)}<td>${s.status}</td><td class="num">${dt(s.created_at)}</td><td class="num">${dt(s.confirmed_at)}</td><td><button class="u-btn u-btn--ghost u-btn--sm" data-del="${s.id}">Delete</button></td></tr>`).join('');
+}
+async function camps() {
+  const { data } = await api('GET', '/admin/api/campaigns');
+  $('#camps').innerHTML = '<tr><th>When</th><th>Subject</th><th>Sent</th><th>Failed</th><th>Status</th></tr>' + (data.length ? '' : `<tr><td colspan="5">No updates sent yet.</td></tr>`) + data.map((c) => `<tr><td class="num">${dt(c.created_at)}</td>${S(c.subject)}<td class="num">${c.sent}/${c.total}</td><td class="num">${c.failed}</td><td>${c.status}</td></tr>`).join('');
+}
+const msg = () => ({ subject: $('#sub').value.trim(), body: $('#body').value.trim() });
+$('#sendTest').onclick = async () => {
+  $('#cErr').textContent = '';
+  if (!$('#test').value) return ($('#cErr').textContent = 'Enter a test address.');
+  const r = await api('POST', '/admin/api/send', { ...msg(), test: $('#test').value });
+  $('#cErr').textContent = r.ok ? '' : 'Write a subject and a message first.';
+  if (r.ok) UShell.toast('Test e-mail queued'); stats();
+};
+$('#compose').onsubmit = async (e) => {
+  e.preventDefault(); $('#cErr').textContent = '';
+  const n = Number(($('#stats div b') || {}).textContent || 0);
+  if (!confirm(`Send this update to all ${n} confirmed subscribers? This cannot be undone.`)) return;
+  const r = await api('POST', '/admin/api/send', msg());
+  if (!r.ok) return ($('#cErr').textContent = r.data.error === 'running' ? 'An update is already being sent.' : 'Write a subject and a message first.');
+  UShell.toast('Sending started'); stats(); setTimeout(camps, 1500);
+};
+$('#subs').onclick = async (e) => { const b = e.target.closest('[data-del]'); if (!b || !confirm('Delete this subscriber for good?')) return; await api('DELETE', '/admin/api/subscribers/' + b.dataset.del); subs(); stats(); };
+$('#q').oninput = () => { clearTimeout(subs.t); subs.t = setTimeout(subs, 250); }; $('#st').onchange = subs;
+$('#traceBtn').onclick = async () => {
+  const { data } = await api('GET', '/admin/api/trace/' + encodeURIComponent($('#mark').value.trim()));
+  $('#trace').innerHTML = data.length ? '<tr><th>When</th><th>Visitor id</th><th>IP</th><th>Car</th></tr>' + data.map((x) => `<tr><td class="num">${dt(x.at)}</td><td class="mono">${esc(x.vid)}</td><td class="mono">${esc(x.ip)}</td>${S(x.series)}</tr>`).join('') : `<tr><td>No record for this mark.</td></tr>`;
+};
+$('#traceTxt').innerHTML = `Every car's data carries an invisible mark (a string starting with <code>bs</code>). If you find a copy of the data, search its strings for that mark and paste it here to see who downloaded it.`;
+if (!BS.bmc) { $('#bmcWarn').innerHTML = `The <b>Buy me a coffee</b> buttons are hidden because <code>BMC_HANDLE</code> is empty. Create your page on buymeacoffee.com, put its name in <code>.env</code> (for example <code>BMC_HANDLE=boltspec</code>) and restart.`; $('#bmcWarn').hidden = false; }
+stats(); subs(); camps();
+</script>
+</body>
+</html>

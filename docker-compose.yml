@@ -1,0 +1,32 @@
+name: boltspec
+services:
+  app:
+    build: .
+    ports:
+      - "${HOST_PORT:-3090}:3000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://boltspec:${POSTGRES_PASSWORD:-boltspec}@db:5432/boltspec
+      BOLTSPEC_LOCAL_DATA: "1"          # local only: use local-data/torque-data.json if present
+    volumes:
+      - ./local-data:/app/local-data:ro  # local dataset, never part of the deploy zip
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: boltspec
+      POSTGRES_DB: boltspec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-boltspec}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boltspec -d boltspec"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  pgdata:

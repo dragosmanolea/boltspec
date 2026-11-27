@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Analytics · BoltSpec</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/brand.css?v={{V}}">
+<link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
+<script>window.BS={{BS}};</script>
+<script src="/assets/shell.js?v={{V}}"></script>
+</head>
+<body data-module="admin">
+<div id="u-shell"></div>
+<main id="main" class="u-wrap bs-admin bs-an">
+  <div class="bs-row bs-an__top">
+    <h1 class="u-h1">Analytics</h1>
+    <span class="bs-an__live" id="live"></span>
+    <span class="u-shell__spacer"></span>
+    <select id="days" aria-label="Period"><option value="1">Today</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select>
+    <a class="u-btn u-btn--ghost u-btn--sm" href="/admin/">Newsletter admin</a>
+  </div>
+  <div class="u-stats bs-an__kpi" id="kpi"></div>
+
+  <section class="u-panel">
+    <div class="u-panel__head"><h2>Visitors per day</h2><span class="sub" id="chartSub"></span></div>
+    <div id="chart" class="bs-an__chart"></div>
+  </section>
+
+  <div class="bs-an__grid">
+    <section class="u-panel"><div class="u-panel__head"><h2>Traffic sources</h2></div><table class="u-table" id="sources"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Conversions by source</h2><span class="sub">coffee clicks · newsletter sign-ups</span></div><table class="u-table" id="conversions"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Popular cars</h2></div><table class="u-table" id="cars"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Popular engines</h2></div><table class="u-table" id="engines"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Searches</h2><span class="sub">avg. results</span></div><table class="u-table" id="searches"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Searches with no results</h2><span class="sub">ideas for the dictionary</span></div><table class="u-table" id="noResults"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Top pages</h2></div><table class="u-table" id="pages"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Campaigns (UTM)</h2><span class="sub">source / medium / campaign</span></div><table class="u-table" id="campaigns"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Devices</h2></div><table class="u-table" id="devices"></table></section>
+    <section class="u-panel"><div class="u-panel__head"><h2>Countries</h2><span class="sub">needs Cloudflare</span></div><table class="u-table" id="countries"></table></section>
+  </div>
+  <p class="u-muted bs-an__note">Cookieless: visitors are counted with a daily-rotating anonymous hash, so the same person on two days counts twice. No IP addresses or cookies are stored for analytics. Bots and admin pages are excluded. Data is kept for 400 days.</p>
+</main>
+<script>
+const $ = (s) => document.querySelector(s), esc = UShell.esc;
+const fmt = (n) => Number(n || 0).toLocaleString('en-GB');
+const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 + '%' : '–');
+const COUNTRY = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; } })();
+
+function delta(now, before) {
+  if (!before) return now ? `<small class="bs-an__d up">new</small>` : '';
+  const d = Math.round(((now - before) / before) * 100);
+  return `<small class="bs-an__d ${d >= 0 ? 'up' : 'down'}" title="vs. previous period">${d >= 0 ? '+' : ''}${d}%</small>`;
+}
+function table(id, rows, cols, empty = 'No data yet') {
+  const head = '<tr>' + cols.map((c) => `<th${c.num ? ' class="num"' : ''}>${c.t}</th>`).join('') + '</tr>';
+  const max = Math.max(1, ...rows.map((r) => r[cols[1].k] || 0));
+  $('#' + id).innerHTML = head + (rows.length ? rows.map((r) => '<tr>' + cols.map((c, i) => {
+    const v = c.f ? c.f(r) : r[c.k];
+    // the first numeric column gets a proportional bar behind the label
+    if (i === 0) return `<td class="bs-an__lbl"><i style="width:${Math.round(((r[cols[1].k] || 0) / max) * 100)}%"></i><span>${v}</span></td>`;
+    return `<td${c.num ? ' class="num"' : ''}>${v}</td>`;
+  }).join('') + '</tr>').join('') : `<tr><td colspan="${cols.length}" class="u-muted">${empty}</td></tr>`);
+}
+function chart(daily, days, from) {
+  // fill missing days with zeroes so gaps are visible
+  const map = Object.fromEntries(daily.map((d) => [d.day, d])), pts = [];
+  for (let i = 0; i < days; i++) { const day = new Date(Date.parse(from) + i * 864e5).toISOString().slice(0, 10); pts.push(map[day] || { day, visitors: 0, pageviews: 0, cars: 0, conversions: 0 }); }
+  const W = Math.max(320, Math.round($('#chart').clientWidth) || 900), H = W < 600 ? 180 : 220, P = { l: 40, r: 8, t: 10, b: 24 }, max = Math.max(4, ...pts.map((p) => p.visitors));
+  const step = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / step) * step;
+  const bw = (W - P.l - P.r) / pts.length, y = (v) => H - P.b - (v / top) * (H - P.t - P.b);
+  let g = '';
+  for (let i = 0; i <= 4; i++) { const v = (top / 4) * i; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(Math.round(v))}</text>`; }
+  const every = Math.ceil(pts.length / Math.max(3, Math.floor(W / 90)));
+  pts.forEach((p, i) => {
+    const x = P.l + i * bw, h = H - P.b - y(p.visitors);
+    g += `<rect x="${x + bw * 0.15}" y="${y(p.visitors)}" width="${Math.max(1, bw * 0.7)}" height="${Math.max(0, h)}" rx="2" class="bar"><title>${`${p.day}: ${fmt(p.visitors)} visitors, ${fmt(p.pageviews)} page views, ${fmt(p.cars)} cars opened, ${fmt(p.conversions)} conversions`}</title></rect>`;
+    if (i % every === 0) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${new Date(p.day).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</text>`;
+  });
+  $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitors per day">${g}</svg>`;
+  $('#chartSub').textContent = 'hover a bar for details';
+}
+async function load() {
+  const r = await fetch('/admin/api/analytics?days=' + $('#days').value);
+  const a = await r.json(), t = a.totals || {}, p = a.previous || {};
+  $('#live').innerHTML = `<i></i>${`${fmt(a.live)} online now`}`;
+  const conv = (t.coffee || 0) + (t.newsletter || 0), convP = (p.coffee || 0) + (p.newsletter || 0);
+  $('#kpi').innerHTML = [
+    ['Visitors', t.visitors, p.visitors], ['Page views', t.pageviews, p.pageviews], ['Cars opened', t.cars, p.cars],
+    ['Searches', t.searches, p.searches], ['Coffee clicks', t.coffee, p.coffee], ['Newsletter sign-ups', t.newsletter, p.newsletter],
+  ].map(([k, v, b]) => `<div><span>${k}</span><b>${fmt(v)}</b>${delta(v || 0, b || 0)}</div>`).join('')
+    + `<div><span>Conversion rate</span><b>${pct(conv, t.visitors)}</b>${delta(conv, convP)}</div>`
+    + `<div><span>Hit the car limit</span><b>${fmt(t.limited)}</b></div>`;
+  chart(a.daily, a.days, a.from);
+  const V = { t: 'Visitors', k: 'v', num: true, f: (r) => fmt(r.v) }, N = (t = 'Views') => ({ t, k: 'n', num: true, f: (r) => fmt(r.n) });
+  table('sources', a.sources, [{ t: 'Source', k: 'k', f: (r) => esc(r.k) }, V, N()]);
+  table('conversions', a.conversions, [{ t: 'Source', k: 'k', f: (r) => esc(r.k) }, { t: 'Coffee', k: 'coffee', num: true }, { t: 'Newsletter', k: 'newsletter', num: true }, { t: 'Rate', k: 'visitors', num: true, f: (r) => pct(r.coffee + r.newsletter, r.visitors) }], 'No conversions yet');
+  table('cars', a.cars, [{ t: 'Car', k: 'k', f: (r) => `<a href="/${esc(r.k)}/" target="_blank">${esc(r.k.toUpperCase())}</a>` }, N('Opened'), V]);
+  table('engines', a.engines, [{ t: 'Car · engine', k: 'k', f: (r) => esc(r.k.toUpperCase()) }, N('Picked'), V]);
+  table('searches', a.searches, [{ t: 'Search term', k: 'k', f: (r) => esc(r.k) }, N('Times'), { t: 'Results', k: 'avg', num: true }]);
+  table('noResults', a.noResults, [{ t: 'Search term', k: 'k', f: (r) => esc(r.k) }, N('Times'), { t: 'Last on', k: 'path', f: (r) => esc(r.path) }], 'None — every search found something');
+  table('pages', a.pages, [{ t: 'Page', k: 'k', f: (r) => `<a href="${esc(r.k)}" target="_blank">${esc(r.k)}</a>` }, N(), V]);
+  table('campaigns', a.campaigns, [{ t: 'Campaign', k: 'k', f: (r) => esc(r.k) }, N(), V], 'Add ?utm_source=…&utm_campaign=… to links you share');
+  const dl = [...a.devices.map((r) => ({ ...r, k: (r.k[0].toUpperCase() + r.k.slice(1)) }))];
+  table('devices', dl, [{ t: 'Device', k: 'k', f: (r) => esc(r.k) }, N(), V]);
+  table('countries', a.countries, [{ t: 'Country', k: 'k', f: (r) => esc((COUNTRY && COUNTRY.of(r.k)) || r.k) }, N(), V], 'Shown when the site runs behind Cloudflare');
+}
+$('#days').onchange = load;
+load(); setInterval(load, 60000);
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(load, 300); });
+</script>
+</body>
+</html>
