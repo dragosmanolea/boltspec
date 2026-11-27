@@ -83,9 +83,9 @@
       <a href="#main" class="u-sr">Skip to content</a>
       <div class="u-shell__bar">
         <a class="u-brand" href="/" aria-label="BoltSpec – home">${MARK}${WORDMARK}</a>
-        <span class="b-tag">for BMW, MINI & Rolls-Royce</span>
+        <span class="b-tag">${BS.classic ? 'torque &amp; service data' : 'for BMW, MINI &amp; Rolls-Royce'}</span>
         <span class="u-shell__spacer"></span>
-        <a class="u-carbtn" href="/#cars">${icon('car')}<span class="t">${BS.series ? esc(BS.series) : 'Choose car'}</span></a>
+        <a class="u-carbtn" href="${esc(BS.carHref || '/#cars')}" title="Change car">${icon('car')}<span class="t">${BS.series ? esc(BS.series) : BS.carLabel ? esc(BS.carLabel) : 'Choose car'}</span></a>
         ${donateBtn('b-coffee--head')}
         <button class="u-iconbtn" id="u-menubtn" type="button" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-expanded="false">${icon('more')}</button>
       </div>
@@ -94,9 +94,9 @@
     ft.innerHTML = `<div class="u-foot__in">
       <section class="b-foot__news" id="news" aria-labelledby="news-h"><h2 id="news-h">Get updates</h2>${newsForm('nf')}</section>
       ${donateUrl ? `<section class="b-foot__coffee"><h2>Useful?</h2><p>BoltSpec is free and has no ads. A coffee helps keep it online and up to date.</p>${donateBtn()}</section>` : ''}
-      <div class="b-foot__meta"><span><b>BoltSpec</b> · Tightening torques and service data for BMW, MINI and Rolls-Royce.</span>
+      <div class="b-foot__meta"><span><b>BoltSpec</b> · Tightening torques and service data for BMW, MINI and Rolls-Royce${BS.classic ? ', plus classic cars from 1980–1997' : ''}.</span>
       <nav aria-label="Information"><a href="/about/">About and privacy</a>${BS.contact ? `<a href="mailto:${esc(BS.contact)}">${esc(BS.contact)}</a>` : ''}</nav>
-      <span class="u-foot__sm">Not affiliated with BMW AG. BMW, MINI and Rolls-Royce are trademarks of BMW AG. Values are for reference: always check the official documentation.</span></div></div>`;
+      <span class="u-foot__sm">${BS.classic ? 'Not affiliated with any vehicle manufacturer. All names and trademarks belong to their owners.' : 'Not affiliated with BMW AG. BMW, MINI and Rolls-Royce are trademarks of BMW AG.'} Values are for reference: always check the official documentation.</span></div></div>`;
     (document.getElementById('main') || document.body).insertAdjacentElement('afterend', ft);
     bindNews(ft.querySelector('#nf'));
     host.querySelector('#u-menubtn').addEventListener('click', (e) => openMenu(e.currentTarget));

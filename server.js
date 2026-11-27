@@ -10,6 +10,8 @@ const zlib = require('zlib');
 const compression = require('compression');
 const { minify } = require('terser');
 const data = require('./src/data');
+const classic = require('./src/classic');
+const svc = require('./public/assets/svcdata.js'); // same code renders the variant rows on the server and in the browser
 const db = require('./src/db');
 const analytics = require('./src/analytics');
 const mail = require('./src/mail');
@@ -50,7 +52,8 @@ app.use(compression());
 app.use(express.json({ limit: '200kb' }));
 
 // ---------- client code: minified once at startup ----------
-const VERSION = crypto.createHash('sha1').update(fs.readFileSync(path.join(ASSETS, 'app.js'))).update(fs.readFileSync(path.join(ASSETS, 'shell.js'))).update(fs.readFileSync(path.join(ASSETS, 'torque.css'))).digest('hex').slice(0, 10);
+// cache-busting version: every script, stylesheet and icon in /assets plus the inlined loaders, so any change reaches browsers
+const VERSION = (() => { const h = crypto.createHash('sha1'); for (const f of fs.readdirSync(ASSETS).filter((f) => /\.(js|css|svg)$/.test(f)).sort()) h.update(f).update(fs.readFileSync(path.join(ASSETS, f))); for (const f of ['loader.js', 'classic-loader.js']) h.update(fs.readFileSync(path.join(VIEWS, f))); return h.digest('hex').slice(0, 10); })();
 const built = {};
 async function build() {
   // the module's functions are called from inline onclick handlers, so top-level names stay; everything inside is mangled
@@ -58,7 +61,10 @@ async function build() {
   // the loader is fully mangled; it is inlined in each car page with the public car index
   const loader = fs.readFileSync(path.join(VIEWS, 'loader.js'), 'utf8').replace('__INDEX__', json(data.INDEX));
   built.loader = (await minify(loader, { compress: { passes: 2 }, mangle: { toplevel: true }, toplevel: true, format: { comments: false } })).code;
+  built.svc = (await minify(fs.readFileSync(path.join(ASSETS, 'svcdata.js'), 'utf8'), { compress: { passes: 2 }, mangle: true, format: { comments: false } })).code;
+  built.cloader = (await minify(fs.readFileSync(path.join(VIEWS, 'classic-loader.js'), 'utf8'), { compress: { passes: 2 }, mangle: { toplevel: true }, toplevel: true, format: { comments: false } })).code;
 }
+app.get('/assets/svcdata.js', (req, res) => { res.type('application/javascript').set('Cache-Control', 'public, max-age=31536000, immutable').send(built.svc); });
 app.get('/assets/app.js', (req, res) => { res.type('application/javascript').set('Cache-Control', 'public, max-age=31536000, immutable').send(built.app); });
 app.use('/assets', express.static(ASSETS, { maxAge: '1h', setHeaders: (res, f) => { if (/\.woff2$/.test(f)) res.set('Cache-Control', 'public, max-age=2592000, immutable'); } }));
 
@@ -116,18 +122,38 @@ app.get('/api/v1/d/:series', async (req, res) => {
   // watermark: an unused string in the data that identifies this visitor; logged so a copy can be traced back
   const mark = 'bs' + hmac(`wm|${vid}|${ip}|${new Date().toISOString().slice(0, 10)}`).toString('base64url').slice(0, 10);
   db.logIssue(mark, vid, ip, series);
-  const plain = zlib.gzipSync(Buffer.from(data.sliceJson(series, mark)), { level: 6 });
+  sendSealed(req, res, data.sliceJson(series, mark));
+});
+// gzip + AES-256-GCM; half of the key comes from the page token, half with this response
+function sendSealed(req, res, text) {
+  const plain = zlib.gzipSync(Buffer.from(text), { level: 6 });
   const kb = crypto.randomBytes(16).toString('base64url');
   const key = crypto.createHash('sha256').update(`${keyA(req.get('x-bs-t'))}.${kb}.${req.get('x-bs-t')}`).digest();
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv('aes-256-gcm', key, iv);
   const body = Buffer.concat([iv, c.update(plain), c.final(), c.getAuthTag()]);
   res.set({ 'Content-Type': 'application/octet-stream', 'X-BS-K': kb, 'Access-Control-Expose-Headers': 'X-BS-K' }).send(body);
+}
+// classic model data: same checks, limits and watermark as the BMW series slices
+app.get('/api/v1/c/:make/:model', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const make = String(req.params.make || '').toLowerCase(), model = String(req.params.model || '').toLowerCase();
+  const car = classic.key(make, model);
+  const tok = readToken(req.get('x-bs-t'));
+  const vid = (/(?:^|;\s*)bs_v=([A-Za-z0-9_-]{16,40})/.exec(req.headers.cookie || '') || [])[1];
+  const ip = ipKey(req);
+  const site = req.get('sec-fetch-site');
+  if ((site && site !== 'same-origin') || !tok || tok.s !== car || !vid || tok.v !== vid || tok.i !== crypto.createHash('sha256').update(ip).digest('base64url').slice(0, 12)) return res.status(403).json({ error: 'forbidden' });
+  if (!classic.get(make, model)) return res.status(404).json({ error: 'model' });
+  if (limited('d:' + ip, 40, 60e3) || !allowCar('ip:' + ip, car) || !allowCar('v:' + vid, car)) return res.status(429).json({ error: 'rate' });
+  const mark = 'bs' + hmac(`wm|${vid}|${ip}|${new Date().toISOString().slice(0, 10)}`).toString('base64url').slice(0, 10);
+  db.logIssue(mark, vid, ip, car);
+  sendSealed(req, res, classic.modelJson(make, model, mark));
 });
 
 // ---------- pages ----------
 const tpl = {};
-for (const f of ['app', 'home', 'about', 'msg', 'admin', 'analytics']) tpl[f] = fs.readFileSync(path.join(VIEWS, f + '.html'), 'utf8');
+for (const f of ['app', 'home', 'about', 'msg', 'admin', 'analytics', 'classic']) tpl[f] = fs.readFileSync(path.join(VIEWS, f + '.html'), 'utf8');
 // Search engine verification tags (Google Search Console, Bing Webmaster Tools), set in .env
 const VERIFY = [['google-site-verification', process.env.GSC_VERIFY], ['msvalidate.01', process.env.BING_VERIFY]]
   .filter(([, v]) => v).map(([n, v]) => `<meta name="${n}" content="${esc(v)}">`).join('');
@@ -139,8 +165,9 @@ app.get('/', (req, res) => {
   visitor(req, res);
   const groups = data.BRANDS.map(([name, f]) => ({ name, list: data.ALLS.filter(f) })).filter((g) => g.list.length);
   const cars = groups.map((g) => `<section class="bs-brand"><h3>${esc(g.name)}</h3><ul class="bs-cars">${g.list.map((s) => `<li><a href="/${s.toLowerCase()}/" data-q="${esc((s + ' ' + data.label(s)).toLowerCase())}"><b class="mono">${esc(s)}</b><span>${esc(data.label(s).replace(/^(BMW|MINI|Rolls-Royce) \S+ ?/, ''))}</span></a></li>`).join('')}</ul></section>`).join('');
+  const old = classic.MAKES.length ? `<section class="bs-brand bs-classic" id="classic"><h3>Classic cars · 1980–1997</h3><p class="bs-classic__lead">Engine, ignition, tyre and alignment data, torque settings and capacities for ${classic.MODELS} models from ${classic.MAKES.length} makes.</p><ul class="bs-cars">${classic.MAKES.map((m) => `<li><a href="/${m.slug}/" data-q="${esc((m.name + ' ' + m.models.map((x) => x.name).join(' ')).toLowerCase())}"><b>${esc(m.name)}</b><span>${m.models.length} model${m.models.length === 1 ? '' : 's'}</span></a></li>`).join('')}</ul></section>` : '';
   htmlHeaders(res).send(fill(tpl.home, {
-    V: VERSION, BS: bsCfg(), CANON: base(req) + '/', CARS: cars, NCARS: data.ALLS.length,
+    V: VERSION, BS: bsCfg(), CANON: base(req) + '/', CARS: cars + old, NCARS: data.ALLS.length, CLASSIC: classic.MODELS ? ` Plus service data for ${classic.MODELS} classic models from ${classic.MAKES.length} other makes (1980–1997).` : '',
     NSPECS: data.TOTAL.toLocaleString('en-GB'),
   }));
 });
@@ -170,6 +197,53 @@ app.get(/^\/([A-Za-z]{1,2}\d{1,2})\/?$/, (req, res, next) => {
   }));
 });
 
+// ---------- classic cars: make pages (/volkswagen/) and model pages (/volkswagen/golf/) ----------
+const crumbs = (items) => items.map(([href, t]) => (href ? `<a href="${href}">${esc(t)}</a>` : `<span aria-current="page">${esc(t)}</span>`)).join(' <span aria-hidden="true">›</span> ');
+const ldPage = (req, title, desc, url) => json({ '@context': 'https://schema.org', '@type': 'WebPage', name: title, description: desc, url: base(req) + url, isPartOf: { '@type': 'WebSite', name: 'BoltSpec', url: base(req) + '/' } });
+app.get(/^\/([a-z][a-z0-9-]{1,30})\/?$/, (req, res, next) => {
+  const m = classic.MAKE[req.params[0]];
+  if (!m) return next();
+  if (!req.path.endsWith('/')) return res.redirect(301, req.path + '/');
+  visitor(req, res);
+  const url = `/${m.slug}/`, title = `${m.name} service data & torque settings · BoltSpec`;
+  const desc = `Engine, ignition, tyre and alignment data, torque settings and fluid capacities for ${m.models.length} classic ${m.name} models (1980–1997). Free.`;
+  const list = `<ul class="bs-cars">${m.models.map((x) => `<li><a href="/${m.slug}/${x.slug}/"><b>${esc(x.name)}</b><span>${esc(x.years)} · ${x.n} variant${x.n === 1 ? '' : 's'}</span></a></li>`).join('')}</ul>`;
+  htmlHeaders(res).send(fill(tpl.classic, {
+    V: VERSION, TITLE: esc(title), DESC: esc(desc), CANON: base(req) + url, BS: bsCfg({ classic: 1, carLabel: m.name, carHref: '/#classic' }), LOADER: '', LD: ldPage(req, title, desc, url),
+    CRUMBS: crumbs([['/', 'Home'], ['/#classic', 'Classic cars'], [null, m.name]]),
+    H1: `${esc(m.name)} <span class="u-bmw">Service data</span>`, LEAD: 'From a 1997 automotive technical data book. Pick your model, then your engine.',
+    MAIN: `<section class="card"><h2>Choose a model</h2>${list}</section>`,
+  }));
+});
+app.get(/^\/([a-z][a-z0-9-]{1,30})\/([a-z0-9][a-z0-9-]{0,40})\/?$/, (req, res, next) => {
+  const [make, model] = [req.params[0], req.params[1]];
+  const s = classic.summary(make, model);
+  if (!s) return next();
+  const url = `/${make}/${model}/`;
+  if (req.path !== url) return res.redirect(301, url);
+  const vid = visitor(req, res);
+  const car = classic.key(make, model);
+  const token = issueToken(car, vid, ipKey(req));
+  const name = `${s.make} ${s.model}`;
+  const title = `${name} specs: torque settings, capacities & tune-up data · BoltSpec`;
+  const desc = `${name}${s.years ? ' (' + s.years + ')' : ''}: engine, ignition, tyre pressures, wheel alignment, torque settings and fluid capacities for ${s.variants.length} engine variant${s.variants.length === 1 ? '' : 's'}. Free.`;
+  const others = classic.MAKE[make].models.filter((x) => x.slug !== model);
+  const H = classic.get(make, model).v;
+  // the variant rows are rendered here (names only, good for search engines); the values arrive encrypted and fill in on open
+  const main = `<section class="card sd-host" id="cl">
+  <div class="sd-head"><h2>Choose your engine</h2><span class="muted">${H.length} engine${H.length === 1 ? '' : 's'}${s.years ? ' · ' + esc(s.years) : ''}</span><span class="muted sd-status" id="bsLoad" role="status"></span></div>
+  ${svc.toolbar(H.length, true)}${svc.list(H)}<p class="muted sd-none" hidden>No engine matches.</p>
+</section>
+${others.length ? `<section class="card noprint"><h2>Other ${esc(s.make)} models</h2><ul class="bs-cars">${others.map((x) => `<li><a href="/${make}/${x.slug}/"><b>${esc(x.name)}</b><span>${esc(x.years)}</span></a></li>`).join('')}</ul></section>` : ''}`;
+  htmlHeaders(res).send(fill(tpl.classic, {
+    V: VERSION, TITLE: esc(title), DESC: esc(desc), CANON: base(req) + url, LD: ldPage(req, title, desc, url),
+    BS: bsCfg({ make, model, key: car, t: token, classic: 1, carLabel: s.model, carHref: `/${make}/` }), LOADER: built.cloader.replace('__KA__', keyA(token)),
+    CRUMBS: crumbs([['/', 'Home'], ['/#classic', 'Classic cars'], [`/${make}/`, s.make], [null, s.model]]),
+    H1: `${esc(name)} <span class="u-bmw">Service data</span>`, LEAD: 'Torque settings, capacities, spark plugs, valve clearances, tyre pressures and tune-up data for each engine. From a 1997 automotive technical data book.',
+    MAIN: main,
+  }));
+});
+
 app.get('/robots.txt', (req, res) => {
   // search engines are welcome; AI training crawlers are not
   const ai = ['GPTBot', 'ChatGPT-User', 'CCBot', 'ClaudeBot', 'anthropic-ai', 'Google-Extended', 'Bytespider', 'PerplexityBot', 'Amazonbot', 'Applebot-Extended', 'Meta-ExternalAgent', 'cohere-ai', 'Diffbot', 'Omgilibot'];
@@ -177,7 +251,7 @@ app.get('/robots.txt', (req, res) => {
 });
 app.get('/sitemap.xml', (req, res) => {
   const u = (p, pr) => `<url><loc>${base(req)}${p}</loc><priority>${pr}</priority></url>`;
-  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${u('/', '1.0')}${data.ALLS.map((s) => u('/' + s.toLowerCase() + '/', '0.8')).join('')}${u('/about/', '0.3')}</urlset>`);
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${u('/', '1.0')}${data.ALLS.map((s) => u('/' + s.toLowerCase() + '/', '0.8')).join('')}${classic.MAKES.map((m) => u(`/${m.slug}/`, '0.6') + m.models.map((x) => u(`/${m.slug}/${x.slug}/`, '0.6')).join('')).join('')}${u('/about/', '0.3')}</urlset>`);
 });
 
 // ---------- newsletter (double opt-in) ----------

@@ -133,7 +133,7 @@ function renderEngines(){
   $('#otherEng').onchange=ev=>setEngine(ev.target.value||null);
 }
 function scrollEng(){setTimeout(()=>{const c=document.querySelector('#engines .chip.on');if(c&&c.scrollIntoView)c.scrollIntoView({inline:'center',block:'nearest'})},80)}
-function setEngine(e){st.engine=e;if(e&&window.BSA)BSA('engine',BS.series+' '+e);renderEngines();refresh();try{localStorage.setItem('tq_engine',st.engine||'')}catch(err){}try{window.UShell&&UShell.sync()}catch(err){}toast(e?`Engine: ${e}`:'All engines');}
+function setEngine(e){st.engine=e;if(e&&window.BSA)BSA('engine',BS.series+' '+e);renderEngines();refresh();if(!$('#tabEngine').classList.contains('hide'))renderEngineData();try{localStorage.setItem('tq_engine',st.engine||'')}catch(err){}try{window.UShell&&UShell.sync()}catch(err){}toast(e?`Engine: ${e}`:'All engines');}
 $('#engines').onclick=e=>{const b=e.target.closest('[data-e]');if(!b)return;setEngine(b.dataset.e||null)};
 
 // ---------- car svg ----------
@@ -328,9 +328,10 @@ document.addEventListener('keydown',e=>{
 });
 
 // tabs
-function showTab(id){document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x.dataset.t==id));['tabTorque','tabService'].forEach(t=>$('#'+t).classList.toggle('hide',t!=id));if(id=='tabService')renderService();}
+function showTab(id){document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x.dataset.t==id));['tabTorque','tabService','tabEngine'].forEach(t=>$('#'+t).classList.toggle('hide',t!=id));if(id=='tabService')renderService();if(id=='tabEngine')renderEngineData();}
+if((D.H||[]).length){$('#tabEngineBtn').classList.remove('hide');$('#svcEngLink').classList.remove('hide');$('#svcEngLink').onclick=()=>{showTab('tabEngine');scrollTo({top:$('.tabs').offsetTop-70})}}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.t));
-$('.tabs').onkeydown=e=>{if(e.key!='ArrowRight'&&e.key!='ArrowLeft')return;const ts=[...document.querySelectorAll('.tab')];let i=ts.indexOf(document.activeElement);if(i<0)return;i=(i+(e.key=='ArrowRight'?1:-1)+ts.length)%ts.length;ts[i].focus();showTab(ts[i].dataset.t)};
+$('.tabs').onkeydown=e=>{if(e.key!='ArrowRight'&&e.key!='ArrowLeft')return;const ts=[...document.querySelectorAll('.tab:not(.hide)')];let i=ts.indexOf(document.activeElement);if(i<0)return;i=(i+(e.key=='ArrowRight'?1:-1)+ts.length)%ts.length;ts[i].focus();showTab(ts[i].dataset.t)};
 
 // header height -> CSS var (sticky breadcrumb + scroll offsets)
 const hdr=$('#hdr');const setHH=()=>document.documentElement.style.setProperty('--hh',hdr.offsetHeight+'px');
@@ -375,7 +376,7 @@ function renderService(){
     return true;});
   const ord={'11':1,'17':2,'24':3,'23':3,'28':3,'27':4,'31':5,'33':5,'64':6,'16':7,'61':8};
   caps.sort((a,b)=>(ord[a.g]||9)-(ord[b.g]||9));
-  $('#capsBox').innerHTML=caps.length?'<div class="caps">'+caps.map(c=>`<div class="capc"><h4>${lbl(c.n)}</h4><div class="muted" style="font-size:12.5px;margin-bottom:6px">${esc(c.b.join('/'))} ${esc(c.s.slice(0,12).join(', '))}${c.s.length>12?'…':''}${c.x?' · '+esc(c.x):''}</div><table>${c.r.map((r,ri)=>'<tr>'+r.map((x,ci)=>`<td>${(c.rr&&c.rr[ri]&&c.rr[ri][ci])?lbl(x):esc(x)}</td>`).join('')+'</tr>').join('')}</table></div>`).join('')+'</div>':`<div class="empty">ISTA has no capacity tables for this selection.${st.engine?' <button class="chip" id="capAll">Show for all engines</button>':''}<br>Also check the label in the engine bay.</div>`;
+  $('#capsBox').innerHTML=caps.length?'<div class="caps">'+caps.map(c=>`<div class="capc"><h4>${lbl(c.n)}</h4><div class="muted" style="font-size:12.5px;margin-bottom:6px">${esc(c.b.join('/'))} ${esc(c.s.slice(0,12).join(', '))}${c.s.length>12?'…':''}${c.x?' · '+esc(c.x):''}</div><table>${c.r.map((r,ri)=>'<tr>'+r.map((x,ci)=>`<td>${(c.rr&&c.rr[ri]&&c.rr[ri][ci])?lbl(x):esc(String(x).replace(/\bcm\s*3\b/g,'cm³'))}</td>`).join('')+'</tr>').join('')}</table></div>`).join('')+'</div>':`<div class="empty">ISTA has no capacity tables for this selection.${st.engine?' <button class="chip" id="capAll">Show for all engines</button>':''}<br>Also check the label in the engine bay.</div>`;
   const ca=$('#capAll');if(ca)ca.onclick=()=>{setEngine(null);renderService()};
   // checklist
   const chk=[['Engine','Change engine oil + filter','Check for oil leaks (valve cover, sump, filter)','Check coolant level + concentration','Check the accessory belt','Air filter','Spark plugs / diesel filter (per interval)','Read fault codes with ISTA'],
@@ -385,6 +386,16 @@ function renderService(){
    ['Underneath','Exhaust – mounts, leaks','Gearbox / differential – leaks','Brake / fuel lines']];
   let ci=0;
   $('#checklist').innerHTML=chk.map(g=>`<tr><th colspan="3">${g[0]}</th></tr>`+g.slice(1).map(i=>{ci++;return `<tr><td><input type="checkbox" id="ck${ci}"></td><td><label for="ck${ci}">${i}</label></td><td style="width:40%;border-bottom:1px dotted var(--line)"></td></tr>`}).join('')).join('');
+}
+// Engine data tab (data book, per engine variant): shared component from /assets/svcdata.js, narrowed to the chosen engine
+function renderEngineData(){
+  const H=D.H||[], box=$('#sdBox');
+  if(!H.length||!window.BSD)return;
+  const mine=st.engine?H.filter(v=>v.e===st.engine):H, list=mine.length?mine:H;
+  $('#sdCar').textContent=`${st.series}${NAMES[st.series]?' '+NAMES[st.series]:''}${st.engine&&mine.length?' · '+st.engine:''}`;
+  $('#sdNote').innerHTML=st.engine&&!mine.length?`No data for ${esc(st.engine)} here. Showing all engines of this series.`:(st.engine?`Showing the ${esc(st.engine)} engines. <button class="chip" id="sdAll" type="button">Show all engines</button>`:'');
+  const sa=$('#sdAll');if(sa)sa.onclick=()=>setEngine(null);
+  box.innerHTML='';BSD.mount(box,list,{key:'bmw:'+st.series});
 }
 ['fuel','use','kmNow'].forEach(id=>$('#'+id).addEventListener('input',renderService));
 $('#chkDate').valueAsDate=new Date();

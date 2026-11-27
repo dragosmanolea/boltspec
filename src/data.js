@@ -7,6 +7,9 @@ const S = D.S;
 const NAMES = D.NAMES || {};
 clean(D);
 const torque = require('./torque'); // loaded after the clean-up
+// Service data card (per series, per engine variant). Optional file, git-ignored like the torque dataset.
+let SVC = {};
+try { SVC = require('./service-data.json'); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') console.error('BoltSpec: cannot read src/service-data.json – ' + e.message); }
 
 // ---------- one-time clean-up of the extracted ISTA data (fixes found by the data QA) ----------
 function clean(D) {
@@ -109,7 +112,8 @@ function slice(series) {
   rows.forEach((n) => { [1, 2, 3, 4, 5, 6, 9, 10].forEach((c) => { n[c] = use(n[c]); }); n[7] = n[7].map(use); n[8] = n[8].map(use); });
   const C = D.C.filter((c) => (c.s.length ? c.s.includes(series) : c.e.some((e) => engs.has(e))))
     .map((c) => ({ ...c, s: c.s.length ? [series] : [], e: c.e.filter((e) => engs.has(e)) }));
-  const out = { S: S2, R: rows, LH: LHn, C };
+  const H = (SVC[make(series)] || {})[series] || [];
+  const out = { S: S2, R: rows, LH: LHn, C, H };
   // pre-serialised once; the per-visitor watermark is appended to S when sending
   const json = JSON.stringify(out);
   const groups = {}; rows.forEach((n) => { groups[n[0]] = (groups[n[0]] || 0) + 1; });

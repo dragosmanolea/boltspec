@@ -167,3 +167,15 @@ body.m-torque #hdr .search kbd { top: calc(50% + 13px); }
 /* message and 404 pages: centred card */
 .bs-msg { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; padding-top: 48px; padding-bottom: 48px; }
 .bs-doc h2 { margin: 32px 0 6px; } .bs-doc h2 + p { margin-top: 0; }
+/* classic cars (data book) */
+.bs-classic__lead{margin:-2px 0 10px;color:var(--ink-2);font-size:14px}
+.m-classic #hdr{flex-wrap:wrap}
+.bs-crumbs{flex-basis:100%;font-size:13px;color:var(--mute);margin-bottom:4px}
+.bs-crumbs a{color:var(--ink-2);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
+.bs-crumbs a:hover{color:var(--ink)}
+.m-classic .card .bs-cars{margin-top:10px}
+.m-classic .pick-tools{margin:6px 0 10px}
+.m-classic .sd-head{display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap;margin-bottom:6px}
+.m-classic .sd-head h2{margin:0}
+.m-classic .sd-head .muted{font-size:14px}
+.sd-status:empty{display:none}

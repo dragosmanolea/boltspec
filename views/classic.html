@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESC}}">
+<link rel="canonical" href="{{CANON}}">
+<meta property="og:title" content="{{TITLE}}">
+<meta property="og:description" content="{{DESC}}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{CANON}}">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/brand.css?v={{V}}">
+<link rel="stylesheet" href="/assets/torque.css?v={{V}}">
+<link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
+<script>window.BS={{BS}};</script>
+<script src="/assets/shell.js?v={{V}}"></script>
+<script src="/assets/svcdata.js?v={{V}}"></script>
+<script type="application/ld+json">{{LD}}</script>
+</head>
+<body data-module="classic" class="m-torque m-classic">
+<div id="u-shell"></div>
+<header id="hdr">
+  <nav class="bs-crumbs noprint" aria-label="Breadcrumb">{{CRUMBS}}</nav>
+  <h1>{{H1}}</h1>
+  <p class="u-bmwnote noprint" style="flex-basis:100%">{{LEAD}}</p>
+</header>
+<main id="main">
+{{MAIN}}
+</main>
+<footer id="foot"></footer>
+<script>{{LOADER}}</script>
+</body>
+</html>
