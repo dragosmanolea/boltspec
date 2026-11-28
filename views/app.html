@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{LANG}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/assets/torque.css?v={{V}}">
 <link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
 <script>window.BS={{BS}};</script>
+{{HEAD}}
 <script src="/assets/shell.js?v={{V}}"></script>
 <script type="application/ld+json">{{LD}}</script>
 </head>
@@ -25,103 +26,103 @@
 <header id="hdr">
   <h1>{{H1}}</h1>
   <p class="u-bmwnote noprint" style="flex-basis:100%">{{LEAD}}</p>
-  <button class="car-pill" id="carPill" aria-controls="pick" aria-expanded="true" title="Change car"><span class="t">Choose car</span> <span aria-hidden="true">▾</span></button>
+  <button class="car-pill" id="carPill" aria-controls="pick" aria-expanded="true" title="{{t:Change car}}"><span class="t">{{t:Choose car}}</span> <span aria-hidden="true">▾</span></button>
   <div class="search noprint" role="search">
     <span class="ico" aria-hidden="true"><svg class="u-i"><use href="/assets/icons.svg#i-search"/></svg></span>
-    <label for="q" class="sr">Search parts and torque specs</label>
-    <input id="q" type="search" placeholder="Search: caliper, oil drain plug, M10" autocomplete="off" enterkeyhint="search" spellcheck="false">
+    <label for="q" class="sr">{{t:Search parts and torque specs}}</label>
+    <input id="q" type="search" placeholder="{{t:Search: caliper, oil drain plug, M10}}" autocomplete="off" enterkeyhint="search" spellcheck="false">
     <kbd aria-hidden="true">/</kbd>
   </div>
 </header>
 <main id="main">
 {{SEO}}
-<div id="bsLoad" class="card noprint" role="status"><svg class="u-i u-spin" aria-hidden="true"><use href="/assets/icons.svg#i-spinner"/></svg> <span>Loading the torque specs…</span></div>
+<div id="bsLoad" class="card noprint" role="status"><svg class="u-i u-spin" aria-hidden="true"><use href="/assets/icons.svg#i-spinner"/></svg> <span>{{t:Loading the torque specs…}}</span></div>
   <!-- Car picker -->
-  <section class="card noprint" id="pick" aria-label="Choose car">
+  <section class="card noprint" id="pick" aria-label="{{t:Choose car}}">
     <div id="pickSum">
       <span class="car" id="sumCar"></span>
-      <button class="btn sec" id="vinBtn" aria-expanded="false" aria-controls="vinForm"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-key"/></svg> VIN</button>
-      <button class="btn sec" id="changeCar" aria-controls="pickFull" aria-expanded="false">Change car</button>
+      <button class="btn sec" id="vinBtn" aria-expanded="false" aria-controls="vinForm"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-key"/></svg> {{t:VIN}}</button>
+      <button class="btn sec" id="changeCar" aria-controls="pickFull" aria-expanded="false">{{t:Change car}}</button>
     </div>
     <div id="vinForm" class="phbox hide" style="margin-top:10px">
-      <h4><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-key"/></svg> VIN for <span id="vinCar"></span> <span class="phint">— used for links to RealOEM parts diagrams. Saved in this browser only.</span></h4>
+      <h4><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-key"/></svg> {{t:VIN for}} <span id="vinCar"></span> <span class="phint">{{t:— used for links to RealOEM parts diagrams. Saved in this browser only.}}</span></h4>
       <div class="inputs" style="margin:0">
-        <label>VIN (full or last 7 characters)<input id="vinIn" maxlength="17" autocomplete="off" spellcheck="false" placeholder="e.g. WBA8E1105KA123456 or KA12345" style="text-transform:uppercase;min-width:240px"></label>
-        <label>RealOEM link for your car (optional)<input id="roIn" autocomplete="off" spellcheck="false" placeholder="paste a realoem.com/...id=... link" style="min-width:280px"></label>
-        <button class="btn" id="vinSave">Save</button><button class="btn sec" id="vinDel">Delete</button>
+        <label>{{t:VIN (full or last 7 characters)}}<input id="vinIn" maxlength="17" autocomplete="off" spellcheck="false" placeholder="{{t:e.g. WBA8E1105KA123456 or KA12345}}" style="text-transform:uppercase;min-width:240px"></label>
+        <label>{{t:RealOEM link for your car (optional)}}<input id="roIn" autocomplete="off" spellcheck="false" placeholder="{{t:paste a realoem.com/...id=... link}}" style="min-width:280px"></label>
+        <button class="btn" id="vinSave">{{t:Save}}</button><button class="btn sec" id="vinDel">{{t:Delete}}</button>
       </div>
-      <div class="phint" style="margin-top:6px">With the VIN, the <b>RealOEM</b> button opens the parts catalogue for your car. If you also paste a RealOEM link for your car (any of its pages containing <code>id=</code>), the button takes you straight to the group you are viewing here (same numbering: 11 Engine, 34 Brakes…).</div>
+      <div class="phint" style="margin-top:6px">{{t:With the VIN, the <b>RealOEM</b> button opens the parts catalogue for your car. If you also paste a RealOEM link for your car (any of its pages containing <code>id=</code>), the button takes you straight to the group you are viewing here (same numbering: 11 Engine, 34 Brakes…).}}</div>
     </div>
     <div id="pickFull">
-      <h2>1. Choose your car</h2>
-      <div class="chips" id="brandTabs" role="group" aria-label="Brand / generation"></div>
+      <h2>{{t:1. Choose your car}}</h2>
+      <div class="chips" id="brandTabs" role="group" aria-label="{{t:Brand / generation}}"></div>
       <div class="pick-tools">
-        <label for="sq" class="sr">Filter series</label>
-        <input id="sq" type="search" placeholder="Filter: F30, X5, 3 Series, Cooper…" autocomplete="off" spellcheck="false">
+        <label for="sq" class="sr">{{t:Filter series}}</label>
+        <input id="sq" type="search" placeholder="{{t:Filter: F30, X5, 3 Series, Cooper…}}" autocomplete="off" spellcheck="false">
         <span class="muted" id="sInfo" style="font-size:13px"></span>
       </div>
       <div id="seriesBox"></div>
       <div id="pickHint" class="hint hide" role="status"></div>
     </div>
     <div id="engineBox" class="hide">
-      <div class="chips" id="engines" role="group" aria-label="Engine"></div>
-      <div class="muted" style="font-size:12.5px;margin-top:6px">Optional: choose the engine to see only its torque specs.</div>
+      <div class="chips" id="engines" role="group" aria-label="{{t:Engine}}"></div>
+      <div class="muted" style="font-size:12.5px;margin-top:6px">{{t:Optional: choose the engine to see only its torque specs.}}</div>
     </div>
   </section>
 
   <div id="app" class="hide">
-    <div class="tabs noprint" role="tablist" aria-label="Sections">
-      <button class="tab" role="tab" aria-selected="true" aria-controls="tabTorque" data-t="tabTorque">Torques<span class="lg"> </span></button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="tabService" data-t="tabService"><span class="lg">Service plan</span><span class="xs">Service</span></button>
+    <div class="tabs noprint" role="tablist" aria-label="{{t:Sections}}">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="tabTorque" data-t="tabTorque">{{t:Torques}}<span class="lg"> </span></button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="tabService" data-t="tabService"><span class="lg">{{t:Service plan}}</span><span class="xs">{{t:Service}}</span></button>
     </div>
 
     <section id="tabTorque" role="tabpanel">
-      <nav id="crumbs" class="noprint" aria-label="You are here"></nav>
+      <nav id="crumbs" class="noprint" aria-label="{{t:You are here}}"></nav>
       <div class="card" id="zoneCard">
-        <h2>Choose an area of the car</h2>
+        <h2>{{t:Choose an area of the car}}</h2>
         <div class="carwrap">
-          <div><button class="btn sec drawtog" id="drawTog" type="button" aria-expanded="false" aria-controls="carSvg"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-car"/></svg> Show drawing</button><svg class="car" id="carSvg" viewBox="28 48 852 262" role="group" aria-label="Car – selectable areas"></svg>
-          <p class="muted carhint" style="font-size:14px;margin:4px 0 0">Pick an area on the drawing or from the list. The number shows how many torque specs it has.</p>
+          <div><button class="btn sec drawtog" id="drawTog" type="button" aria-expanded="false" aria-controls="carSvg"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-car"/></svg> {{t:Show drawing}}</button><svg class="car" id="carSvg" viewBox="28 48 852 262" role="group" aria-label="{{t:Car – selectable areas}}"></svg>
+          <p class="muted carhint" style="font-size:14px;margin:4px 0 0">{{t:Pick an area on the drawing or from the list. The number shows how many torque specs it has.}}</p>
           <div class="quick" id="quick"></div></div>
           <div class="zlist" id="zoneList"></div>
         </div>
-        <details class="allg" id="allg" open><summary>All groups <span class="cnt" id="gTotal"></span></summary>
+        <details class="allg" id="allg" open><summary>{{t:All groups}} <span class="cnt" id="gTotal"></span></summary>
           <div class="grid" id="groups"></div>
         </details>
       </div>
       <div class="card" id="detail" aria-live="polite" aria-busy="false">
         <div id="detailHead"></div>
-        <div class="chips" id="subs" role="group" aria-label="Subgroups"></div>
+        <div class="chips" id="subs" role="group" aria-label="{{t:Subgroups}}"></div>
         <div class="rows" id="rows"></div>
       </div>
     </section>
 
     <section id="tabService" class="hide" role="tabpanel">
-      <div class="print-only phead"><h1>Service checklist — <span id="pCar"></span></h1><div id="pMeta"></div></div>
+      <div class="print-only phead"><h1>{{t:Service checklist —}} <span id="pCar"></span></h1><div id="pMeta"></div></div>
       <div class="card">
-        <h2>Service plan — <span id="svcCar"></span></h2>
-        <div class="warn noprint">Indicative intervals. If the dashboard (CBS) or ISTA says otherwise, follow the dashboard. Capacities come from ISTA technical data.</div>
+        <h2>{{t:Service plan —}} <span id="svcCar"></span></h2>
+        <div class="warn noprint">{{t:Indicative intervals. If the dashboard (CBS) or ISTA says otherwise, follow the dashboard. Capacities come from ISTA technical data.}}</div>
         <div class="inputs noprint" style="margin-top:14px">
-          <label>Odometer (km) <input id="kmNow" type="number" inputmode="numeric" min="0" step="1000" placeholder="e.g. 145000"></label>
-          <label>Fuel <select id="fuel"><option value="b">Petrol</option><option value="d">Diesel</option><option value="h">Hybrid / PHEV</option></select></label>
-          <label>Usage <select id="use"><option value="n">Normal</option><option value="s">Severe (city, short trips, track, towing)</option></select></label>
-          <button class="btn" id="printChk"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-printer"/></svg> Print checklist</button>
-          <button class="btn sec" id="printAll"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-printer"/></svg> Print full plan</button>
+          <label>{{t:Odometer (km)}} <input id="kmNow" type="number" inputmode="numeric" min="0" step="1000" placeholder="{{t:e.g. 145000}}"></label>
+          <label>{{t:Fuel}} <select id="fuel"><option value="b">{{t:Petrol}}</option><option value="d">{{t:Diesel}}</option><option value="h">{{t:Hybrid / PHEV}}</option></select></label>
+          <label>{{t:Usage}} <select id="use"><option value="n">{{t:Normal}}</option><option value="s">{{t:Severe (city, short trips, track, towing)}}</option></select></label>
+          <button class="btn" id="printChk"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-printer"/></svg> {{t:Print checklist}}</button>
+          <button class="btn sec" id="printAll"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-printer"/></svg> {{t:Print full plan}}</button>
         </div>
-        <h3>Maintenance intervals</h3>
+        <h3>{{t:Maintenance intervals}}</h3>
         <div class="tscroll"><table id="intervals"></table></div>
       </div>
       <div class="card">
-        <h2>Fluids and capacities (from ISTA)</h2>
+        <h2>{{t:Fluids and capacities (from ISTA)}}</h2>
         <div id="capsBox"></div>
       </div>
       <div class="card" id="chkCard">
-        <h2>Service checklist</h2>
-        <div class="inputs"><label>Date <input type="date" id="chkDate"></label><label>Km at service <input type="number" inputmode="numeric" id="chkKm"></label><label>Notes <input id="chkNote" style="min-width:260px"></label></div>
+        <h2>{{t:Service checklist}}</h2>
+        <div class="inputs"><label>{{t:Date}} <input type="date" id="chkDate"></label><label>{{t:Km at service}} <input type="number" inputmode="numeric" id="chkKm"></label><label>{{t:Notes}} <input id="chkNote" style="min-width:260px"></label></div>
         <table class="check" id="checklist"></table>
       </div>
-      <div class="phbox noprint" style="margin-top:16px"><h4><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-save"/></svg> Full backup <span class="phint">favourites and VINs in one file (to move them to another device or keep them safe)</span></h4>
-          <div class="chips"><button class="btn sec" id="bkExp"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-download"/></svg> Download backup</button><button class="btn sec" id="bkImpB"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-upload"/></svg> Restore backup</button><input type="file" id="bkImp" accept=".json" class="hide"></div></div>
+      <div class="phbox noprint" style="margin-top:16px"><h4><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-save"/></svg> {{t:Full backup}} <span class="phint">{{t:favourites and VINs in one file (to move them to another device or keep them safe)}}</span></h4>
+          <div class="chips"><button class="btn sec" id="bkExp"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-download"/></svg> {{t:Download backup}}</button><button class="btn sec" id="bkImpB"><svg class="u-i sm" aria-hidden="true"><use href="/assets/icons.svg#i-upload"/></svg> {{t:Restore backup}}</button><input type="file" id="bkImp" accept=".json" class="hide"></div></div>
     </section>
   </div>
 </main>

@@ -95,7 +95,7 @@
 .u-menu__grp { padding: 10px 16px 6px; }
 .u-menu__lbl { display: block; margin: 0 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--mute); }
 .u-menu .u-seg { margin: 0; gap: 0; }
-.u-menu .u-seg button { flex: 1 1 0; padding: 0 6px; text-align: center; font-size: 14px; }
+.u-menu .u-seg button, .u-menu .u-seg a { flex: 1 1 0; padding: 0 6px; justify-content: center; text-align: center; font-size: 14px; }
 .u-menu__links { border-top: var(--hair); margin-top: 8px; padding-top: 6px; }
 .u-menu__links a { padding: 0 16px; }
 .u-menu__links a[href*="buymeacoffee"] { font-weight: 600; }
@@ -114,7 +114,7 @@
 .bs-an__grid { margin-top: 16px; }
 .bs-an__top select { height: 40px; }
 /* admin pages don't need the public-site chrome */
-body[data-module=admin] .u-foot, body[data-module=admin] .u-carbtn, body[data-module=admin] .b-coffee--head { display: none; }
+body[data-module=admin] .u-foot, body[data-module=admin] .u-carbtn, body[data-module=admin] .b-coffee--head, body[data-module=admin] .b-lang, body[data-module=analytics] .b-lang { display: none; }
 @media (max-width: 600px) {
   #subs td:nth-child(4), #subs th:nth-child(4) { display: none; }
   .bs-an__chart text { font-size: 10px; }
@@ -167,3 +167,13 @@ body.m-torque #hdr .search kbd { top: calc(50% + 13px); }
 /* message and 404 pages: centred card */
 .bs-msg { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; padding-top: 48px; padding-bottom: 48px; }
 .bs-doc h2 { margin: 32px 0 6px; } .bs-doc h2 + p { margin-top: 0; }
+/* language: EN/RO switch in the header bar, and the "available in Romanian" suggestion under it */
+.b-lang { display: flex; gap: 2px; flex: 0 0 auto; }
+.b-lang a { min-width: 36px; min-height: 32px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-2); color: var(--shell-mute, #a9afb6); font-family: var(--font-mono); font-stretch: 87.5%; font-size: 13px; font-weight: 600; text-decoration: none; }
+.b-lang a:hover { color: var(--shell-ink); background: #ffffff14; }
+.b-lang a[aria-current] { color: var(--shell-ink); box-shadow: inset 0 -2px 0 var(--accent); }
+@media (pointer: coarse) { .b-lang a { min-height: var(--tap); min-width: 40px; } }
+@media (max-width: 420px) { .b-lang a { min-width: 30px; padding: 0 3px; } }
+.b-langhint { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 14px; padding: 8px 16px; background: var(--surface-2, #eef0f2); border-bottom: var(--hair); font-size: 15px; }
+.b-langhint .u-iconbtn { width: 36px; height: 36px; }
+@media (pointer: coarse) { .b-langhint .u-iconbtn { width: var(--tap); height: var(--tap); } }

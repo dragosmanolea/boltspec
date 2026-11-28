@@ -9,3 +9,6 @@ src/torque-data.json
 
 # deploy build output
 deploy/*.zip
+
+# data translations (derived from the ISTA dataset, kept out of the repo like it)
+src/torque-data.*.json

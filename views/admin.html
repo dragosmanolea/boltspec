@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{LANG}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -24,6 +24,10 @@
     <form class="u-form" id="compose">
       <label for="sub">Subject</label><input id="sub" maxlength="200" required>
           <label for="body">Message</label><textarea id="body" rows="9" required placeholder="Plain text. Leave an empty line between paragraphs. Links become clickable."></textarea>
+      <details id="roBox"><summary>Romanian version (optional, for subscribers who signed up on /ro/)</summary>
+        <label for="sub_ro">Subject (Romanian)</label><input id="sub_ro" maxlength="200" lang="ro">
+        <label for="body_ro">Message (Romanian)</label><textarea id="body_ro" rows="7" lang="ro" placeholder="Leave empty to send the English text to everyone (Romanian subscribers still get a Romanian footer)."></textarea>
+      </details>
       <div class="bs-row">
         <input id="test" type="email" placeholder="Send a test to…" aria-label="Test address">
         <button class="u-btn u-btn--secondary" type="button" id="sendTest">Send test</button>
@@ -75,13 +79,13 @@ async function stats() {
 }
 async function subs() {
   const { data } = await api('GET', `/admin/api/subscribers?q=${encodeURIComponent($('#q').value)}&status=${$('#st').value}`);
-  $('#subs').innerHTML = '<tr><th>E-mail</th><th>Status</th><th>Signed up</th><th>Confirmed</th><th></th></tr>' + (data.length ? '' : `<tr><td colspan="5">No subscribers match.</td></tr>`) + data.map((s) => `<tr>${S(s.email)}<td>${s.status}</td><td class="num">${dt(s.created_at)}</td><td class="num">${dt(s.confirmed_at)}</td><td><button class="u-btn u-btn--ghost u-btn--sm" data-del="${s.id}">Delete</button></td></tr>`).join('');
+  $('#subs').innerHTML = '<tr><th>E-mail</th><th>Status</th><th>Lang</th><th>Signed up</th><th>Confirmed</th><th></th></tr>' + (data.length ? '' : `<tr><td colspan="6">No subscribers match.</td></tr>`) + data.map((s) => `<tr>${S(s.email)}<td>${s.status}</td><td>${esc(s.lang || 'en')}</td><td class="num">${dt(s.created_at)}</td><td class="num">${dt(s.confirmed_at)}</td><td><button class="u-btn u-btn--ghost u-btn--sm" data-del="${s.id}">Delete</button></td></tr>`).join('');
 }
 async function camps() {
   const { data } = await api('GET', '/admin/api/campaigns');
   $('#camps').innerHTML = '<tr><th>When</th><th>Subject</th><th>Sent</th><th>Failed</th><th>Status</th></tr>' + (data.length ? '' : `<tr><td colspan="5">No updates sent yet.</td></tr>`) + data.map((c) => `<tr><td class="num">${dt(c.created_at)}</td>${S(c.subject)}<td class="num">${c.sent}/${c.total}</td><td class="num">${c.failed}</td><td>${c.status}</td></tr>`).join('');
 }
-const msg = () => ({ subject: $('#sub').value.trim(), body: $('#body').value.trim() });
+const msg = () => ({ subject: $('#sub').value.trim(), body: $('#body').value.trim(), subject_ro: $('#sub_ro').value.trim(), body_ro: $('#body_ro').value.trim() });
 $('#sendTest').onclick = async () => {
   $('#cErr').textContent = '';
   if (!$('#test').value) return ($('#cErr').textContent = 'Enter a test address.');

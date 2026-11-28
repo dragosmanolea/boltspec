@@ -13,6 +13,7 @@ const data = require('./src/data');
 const db = require('./src/db');
 const analytics = require('./src/analytics');
 const mail = require('./src/mail');
+const i18n = require('./src/i18n');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
@@ -50,16 +51,26 @@ app.use(compression());
 app.use(express.json({ limit: '200kb' }));
 
 // ---------- client code: minified once at startup ----------
-const VERSION = crypto.createHash('sha1').update(fs.readFileSync(path.join(ASSETS, 'app.js'))).update(fs.readFileSync(path.join(ASSETS, 'shell.js'))).update(fs.readFileSync(path.join(ASSETS, 'torque.css'))).digest('hex').slice(0, 10);
+const VERSION = crypto.createHash('sha1').update(fs.readFileSync(path.join(ASSETS, 'app.js'))).update(fs.readFileSync(path.join(ASSETS, 'shell.js'))).update(fs.readFileSync(path.join(ASSETS, 'torque.css'))).update(fs.readFileSync(path.join(__dirname, 'src', 'i18n.js'))).update(fs.readFileSync(path.join(ASSETS, 'boltspec.css'))).digest('hex').slice(0, 10);
 const built = {};
 async function build() {
   // the module's functions are called from inline onclick handlers, so top-level names stay; everything inside is mangled
   built.app = (await minify(fs.readFileSync(path.join(ASSETS, 'app.js'), 'utf8'), { compress: { passes: 2 }, mangle: true, format: { comments: false } })).code;
   // the loader is fully mangled; it is inlined in each car page with the public car index
-  const loader = fs.readFileSync(path.join(VIEWS, 'loader.js'), 'utf8').replace('__INDEX__', json(data.INDEX));
-  built.loader = (await minify(loader, { compress: { passes: 2 }, mangle: { toplevel: true }, toplevel: true, format: { comments: false } })).code;
+  // one loader per language: the public index carries the group names
+  built.loader = {};
+  for (const l of i18n.LANGS) {
+    const loader = fs.readFileSync(path.join(VIEWS, 'loader.js'), 'utf8').replace('__INDEX__', json(data.indexFor(l)));
+    built.loader[l] = (await minify(loader, { compress: { passes: 2 }, mangle: { toplevel: true }, toplevel: true, format: { comments: false } })).code;
+  }
 }
 app.get('/assets/app.js', (req, res) => { res.type('application/javascript').set('Cache-Control', 'public, max-age=31536000, immutable').send(built.app); });
+// interface strings for the browser (shell, loader, car module) in one language: /assets/i18n-ro.js
+app.get(/^\/assets\/i18n-([a-z]{2})\.js$/, (req, res, next) => {
+  const l = req.params[0];
+  if (l === i18n.DEFAULT || !i18n.LANGS.includes(l)) return next();
+  res.type('application/javascript').set('Cache-Control', 'public, max-age=31536000, immutable').send(`window.BS_T=${json(i18n.clientDict(l))};`);
+});
 app.use('/assets', express.static(ASSETS, { maxAge: '1h', setHeaders: (res, f) => { if (/\.woff2$/.test(f)) res.set('Cache-Control', 'public, max-age=2592000, immutable'); } }));
 
 // ---------- visitor id (anti-abuse; not used for tracking) ----------
@@ -116,7 +127,8 @@ app.get('/api/v1/d/:series', async (req, res) => {
   // watermark: an unused string in the data that identifies this visitor; logged so a copy can be traced back
   const mark = 'bs' + hmac(`wm|${vid}|${ip}|${new Date().toISOString().slice(0, 10)}`).toString('base64url').slice(0, 10);
   db.logIssue(mark, vid, ip, series);
-  const plain = zlib.gzipSync(Buffer.from(data.sliceJson(series, mark)), { level: 6 });
+  const lang = i18n.LANGS.includes(req.query.l) ? req.query.l : i18n.DEFAULT;
+  const plain = zlib.gzipSync(Buffer.from(data.sliceJson(series, mark, lang)), { level: 6 });
   const kb = crypto.randomBytes(16).toString('base64url');
   const key = crypto.createHash('sha256').update(`${keyA(req.get('x-bs-t'))}.${kb}.${req.get('x-bs-t')}`).digest();
   const iv = crypto.randomBytes(12);
@@ -126,62 +138,92 @@ app.get('/api/v1/d/:series', async (req, res) => {
 });
 
 // ---------- pages ----------
+// English lives at /, Romanian under /ro/ (same paths). Templates mark translatable text as {{t:English text}};
+// [[NAME]] inside such text and {{NAME}} elsewhere are filled with the page's values.
 const tpl = {};
 for (const f of ['app', 'home', 'about', 'msg', 'admin', 'analytics']) tpl[f] = fs.readFileSync(path.join(VIEWS, f + '.html'), 'utf8');
 // Search engine verification tags (Google Search Console, Bing Webmaster Tools), set in .env
 const VERIFY = [['google-site-verification', process.env.GSC_VERIFY], ['msvalidate.01', process.env.BING_VERIFY]]
   .filter(([, v]) => v).map(([n, v]) => `<meta name="${n}" content="${esc(v)}">`).join('');
-const fill = (t, vars) => t.replace(/\{\{(\w+)\}\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)).replace('</head>', VERIFY + '</head>');
-const bsCfg = (extra = {}) => json({ bmc: BMC, contact: CONTACT, v: VERSION, ...extra });
+const fill = (t, vars, lang = i18n.DEFAULT) => t
+  .replace(/\{\{t:([\s\S]*?)\}\}/g, (m, k) => i18n.t(lang, k))
+  .replace(/\[\[(\w+)\]\]|\{\{(\w+)\}\}/g, (m, a, b) => { const k = a || b; return vars[k] !== undefined ? vars[k] : (k === 'LANG' ? lang : m); })
+  .replace('</head>', VERIFY + '</head>');
+// p: path inside a language ('/', '/about/', '/f10/'); alt: the same page in every language
+const alts = (p) => Object.fromEntries(i18n.LANGS.map((l) => [l, i18n.prefix(l) + p]));
+const bsCfg = (lang, p, extra = {}) => json({ bmc: BMC, contact: CONTACT, v: VERSION, lang, p: i18n.prefix(lang), alt: p ? alts(p) : undefined, ...extra });
+// <head> extras per language: hreflang alternates, og:locale, and the browser dictionary for translated pages
+function head(req, lang, p) {
+  const out = [];
+  if (p) {
+    for (const l of i18n.LANGS) out.push(`<link rel="alternate" hreflang="${l}" href="${base(req)}${i18n.prefix(l)}${p}">`);
+    out.push(`<link rel="alternate" hreflang="x-default" href="${base(req)}${p}">`);
+  }
+  out.push(`<meta property="og:locale" content="${i18n.OG_LOCALE[lang]}">`);
+  if (lang !== i18n.DEFAULT) out.push(`<script src="/assets/i18n-${lang}.js?v=${VERSION}"></script>`);
+  return out.join('\n');
+}
 const htmlHeaders = (res) => res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+const page = (req, res, lang, p, name, vars, extra) => htmlHeaders(res).send(fill(tpl[name], { V: VERSION, BS: bsCfg(lang, p, extra), HEAD: head(req, lang, p), CANON: base(req) + i18n.prefix(lang) + p, LANG: lang, ...vars }, lang));
 
-app.get('/', (req, res) => {
+const site = express.Router();
+site.get('/', (req, res) => {
+  const lang = req.lang, P = i18n.prefix(lang);
   visitor(req, res);
   const groups = data.BRANDS.map(([name, f]) => ({ name, list: data.ALLS.filter(f) })).filter((g) => g.list.length);
-  const cars = groups.map((g) => `<section class="bs-brand"><h3>${esc(g.name)}</h3><ul class="bs-cars">${g.list.map((s) => `<li><a href="/${s.toLowerCase()}/" data-q="${esc((s + ' ' + data.label(s)).toLowerCase())}"><b class="mono">${esc(s)}</b><span>${esc(data.label(s).replace(/^(BMW|MINI|Rolls-Royce) \S+ ?/, ''))}</span></a></li>`).join('')}</ul></section>`).join('');
-  htmlHeaders(res).send(fill(tpl.home, {
-    V: VERSION, BS: bsCfg(), CANON: base(req) + '/', CARS: cars, NCARS: data.ALLS.length,
-    NSPECS: data.TOTAL.toLocaleString('en-GB'),
-  }));
+  const cars = groups.map((g) => `<section class="bs-brand"><h3>${esc(g.name)}</h3><ul class="bs-cars">${g.list.map((s) => `<li><a href="${P}/${s.toLowerCase()}/" data-q="${esc((s + ' ' + data.label(s, lang) + (lang !== 'en' ? ' ' + data.label(s) : '')).toLowerCase())}"><b class="mono">${esc(s)}</b><span>${esc(data.label(s, lang).replace(/^(BMW|MINI|Rolls-Royce) \S+ ?/, ''))}</span></a></li>`).join('')}</ul></section>`).join('');
+  page(req, res, lang, '/', 'home', { CARS: cars, NCARS: data.ALLS.length, NSPECS: i18n.num(data.TOTAL, lang) });
 });
-app.get('/about/', (req, res) => { htmlHeaders(res).send(fill(tpl.about, { V: VERSION, BS: bsCfg(), CANON: base(req) + '/about/', CONTACT: CONTACT ? `<a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>` : 'the contact address in the footer', SRC: esc(data.meta.src) })); });
-app.get('/about', (req, res) => res.redirect(301, '/about/'));
+site.get('/about/', (req, res) => {
+  const lang = req.lang;
+  page(req, res, lang, '/about/', 'about', { CONTACT: CONTACT ? `<a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>` : i18n.t(lang, 'the contact address in the footer'), SRC: esc(data.meta.src) });
+});
+site.get('/about', (req, res) => res.redirect(301, i18n.prefix(req.lang) + '/about/'));
 
-app.get(/^\/([A-Za-z]{1,2}\d{1,2})\/?$/, (req, res, next) => {
+site.get(/^\/([A-Za-z]{1,2}\d{1,2})\/?$/, (req, res, next) => {
+  const lang = req.lang, P = i18n.prefix(lang), t = (k, v) => i18n.t(lang, k, v), n = (x) => i18n.num(x, lang);
   const series = req.params[0].toUpperCase();
   if (!data.ALLS.includes(series)) return next();
-  if (req.path !== '/' + series.toLowerCase() + '/') return res.redirect(301, '/' + series.toLowerCase() + '/');
+  const p = '/' + series.toLowerCase() + '/';
+  if (req.path !== p) return res.redirect(301, P + p);
   const vid = visitor(req, res);
-  const s = data.seo(series);
+  const s = data.seo(series, lang);
   const token = issueToken(series, vid, ipKey(req));
-  const title = `${s.label} torque specs & service data · BoltSpec`;
-  const desc = `${s.count.toLocaleString('en-GB')} tightening torques for the ${s.label}${s.engines.length ? ' (' + s.engines.join(', ') + ')' : ''}, plus service intervals and fluid capacities. Free, from BMW ISTA.`;
-  const pop = s.popular.map((p) => p.rows.map((r) => `<tr><td>${esc(r.part)}</td><td class="mono">${esc(r.thread || '')}</td><td class="mono v">${esc(r.value)}</td></tr>`).join('')).join('');
+  const title = t('{label} torque specs & service data · BoltSpec', { label: s.label });
+  const desc = t('{n} tightening torques for the {label}{engines}, plus service intervals and fluid capacities. Free, from BMW ISTA.', { n: n(s.count), label: s.label, engines: s.engines.length ? ' (' + s.engines.join(', ') + ')' : '' });
+  const pop = s.popular.map((x) => x.rows.map((r) => `<tr><td>${esc(r.part)}</td><td class="mono">${esc(r.thread || '')}</td><td class="mono v">${esc(r.value)}</td></tr>`).join('')).join('');
   const seoHtml = `<section class="card bs-seo noprint" id="seo">
-  <p class="bs-seo__lead">${s.engines.length ? `${s.count.toLocaleString('en-GB')} torque specs in ${s.groups.length} groups, for the engines ${esc(s.engines.join(', '))}.` : `${s.count.toLocaleString('en-GB')} torque specs in ${s.groups.length} groups.`}</p>
-  ${pop ? `<details class="bs-seo__pop"><summary>Common torque specs</summary><table class="bs-pop"><tbody>${pop}</tbody></table><p class="bs-seo__fine">Values can depend on the engine and model year. Pick yours in the full list below.</p></details>` : ''}
+  <p class="bs-seo__lead">${s.engines.length ? esc(t('{n} torque specs in {g} groups, for the engines {engines}.', { n: n(s.count), g: s.groups.length, engines: s.engines.join(', ') })) : esc(t('{n} torque specs in {g} groups.', { n: n(s.count), g: s.groups.length }))}</p>
+  ${pop ? `<details class="bs-seo__pop"><summary>${t('Common torque specs')}</summary><table class="bs-pop"><tbody>${pop}</tbody></table><p class="bs-seo__fine">${t('Values can depend on the engine and model year. Pick yours in the full list below.')}</p></details>` : ''}
 </section>`;
-  const loader = built.loader.replace('__KA__', keyA(token));
-  htmlHeaders(res).send(fill(tpl.app, {
-    V: VERSION, TITLE: esc(title), DESC: esc(desc), CANON: base(req) + '/' + series.toLowerCase() + '/',
-    H1: `${esc(s.label)} <span class="u-bmw">Torque &amp; service</span>`, LEAD: 'Tightening torques, service plan and fluid capacities from BMW ISTA. Not affiliated with BMW AG.',
-    SEO: seoHtml, BS: bsCfg({ series, t: token, eng: s.engines }), LOADER: loader,
-    LD: json({ '@context': 'https://schema.org', '@type': 'WebPage', name: title, description: desc, url: base(req) + '/' + series.toLowerCase() + '/', isPartOf: { '@type': 'WebSite', name: 'BoltSpec', url: base(req) + '/' } }),
-  }));
+  const loader = built.loader[lang].replace('__KA__', keyA(token));
+  page(req, res, lang, p, 'app', {
+    TITLE: esc(title), DESC: esc(desc),
+    H1: `${esc(s.label)} <span class="u-bmw">${t('Torque &amp; service')}</span>`, LEAD: t('Tightening torques, service plan and fluid capacities from BMW ISTA. Not affiliated with BMW AG.'),
+    SEO: seoHtml, LOADER: loader,
+    LD: json({ '@context': 'https://schema.org', '@type': 'WebPage', name: title, description: desc, inLanguage: lang, url: base(req) + P + p, isPartOf: { '@type': 'WebSite', name: 'BoltSpec', url: base(req) + P + '/' } }),
+  }, { series, t: token, eng: s.engines });
 });
+// /ro/... first (Romanian), then the same routes at / (English)
+app.use((req, res, next) => (req.path === '/ro' ? res.redirect(301, '/ro/') : next())); // (an app.get('/ro') would also match /ro/ and loop)
+app.use('/ro', (req, res, next) => { req.lang = 'ro'; next(); }, site);
+app.use((req, res, next) => { if (!req.lang) req.lang = i18n.DEFAULT; next(); }, site);
 
 app.get('/robots.txt', (req, res) => {
   // search engines are welcome; AI training crawlers are not
   const ai = ['GPTBot', 'ChatGPT-User', 'CCBot', 'ClaudeBot', 'anthropic-ai', 'Google-Extended', 'Bytespider', 'PerplexityBot', 'Amazonbot', 'Applebot-Extended', 'Meta-ExternalAgent', 'cohere-ai', 'Diffbot', 'Omgilibot'];
   res.type('text/plain').send(`User-agent: *\nDisallow: /api/\nDisallow: /admin/\nDisallow: /newsletter/\n\n${ai.map((b) => `User-agent: ${b}\nDisallow: /`).join('\n\n')}\n\nSitemap: ${base(req)}/sitemap.xml\n`);
 });
+// every page in every language, each listing its alternates (hreflang)
 app.get('/sitemap.xml', (req, res) => {
-  const u = (p, pr) => `<url><loc>${base(req)}${p}</loc><priority>${pr}</priority></url>`;
-  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${u('/', '1.0')}${data.ALLS.map((s) => u('/' + s.toLowerCase() + '/', '0.8')).join('')}${u('/about/', '0.3')}</urlset>`);
+  const links = (p) => i18n.LANGS.map((l) => `<xhtml:link rel="alternate" hreflang="${l}" href="${base(req)}${i18n.prefix(l)}${p}"/>`).join('') + `<xhtml:link rel="alternate" hreflang="x-default" href="${base(req)}${p}"/>`;
+  const u = (p, pr) => i18n.LANGS.map((l) => `<url><loc>${base(req)}${i18n.prefix(l)}${p}</loc>${links(p)}<priority>${pr}</priority></url>`).join('');
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${u('/', '1.0')}${data.ALLS.map((s) => u('/' + s.toLowerCase() + '/', '0.8')).join('')}${u('/about/', '0.3')}</urlset>`);
 });
 
 // ---------- newsletter (double opt-in) ----------
-const msgPage = (res, title, body, status = 200) => htmlHeaders(res).status(status).send(fill(tpl.msg, { V: VERSION, BS: bsCfg(), TITLE: esc(title), BODY: body }));
+const msgPage = (req, res, lang, title, body, status = 200) => htmlHeaders(res).status(status).send(fill(tpl.msg, { V: VERSION, BS: bsCfg(lang), HEAD: head(req, lang), HOME: i18n.prefix(lang) + '/', TITLE: esc(i18n.t(lang, title)), BODY: `<p>${i18n.t(lang, body)}</p>` }, lang));
+const langOk = (l) => (i18n.LANGS.includes(l) ? l : i18n.DEFAULT);
 // ---------- analytics beacon (cookieless, see src/analytics.js) ----------
 app.post('/api/e', express.text({ type: '*/*', limit: '4kb' }), (req, res) => {
   res.status(204).end();
@@ -198,19 +240,20 @@ app.post('/api/newsletter', async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase().slice(0, 200);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'email' });
   if (limited('nl:' + ipKey(req), 6, 3600e3) || limited('nle:' + email, 3, 3600e3)) return res.status(429).json({ error: 'rate' });
-  const s = await db.subscribe(email, ipKey(req));
-  if (s.status !== 'confirmed') mail.queue({ to: email, kind: 'confirm', url: `${base(req)}/newsletter/confirm?t=${s.token}` });
+  const lang = langOk(req.body.lang);
+  const s = await db.subscribe(email, ipKey(req), lang);
+  if (s.status !== 'confirmed') mail.queue({ to: email, kind: 'confirm', lang, url: `${base(req)}/newsletter/confirm?t=${s.token}` });
   res.json({ ok: true }); // same answer whether or not the address was already on the list
 });
 app.get('/newsletter/confirm', async (req, res) => {
   const s = await db.confirm(String(req.query.t || ''));
-  if (!s) return msgPage(res, 'Link expired', `<p>${'This confirmation link is no longer valid. Subscribe again from the form at the bottom of any page.'}</p>`, 400);
-  msgPage(res, 'You are subscribed', `<p>${'Thanks! We will e-mail you when there is something new on BoltSpec. Every e-mail has a one-click unsubscribe link.'}</p>`);
+  if (!s) return msgPage(req, res, langOk(req.query.l), 'Link expired', 'This confirmation link is no longer valid. Subscribe again from the form at the bottom of any page.', 400);
+  msgPage(req, res, langOk(s.lang), 'You are subscribed', 'Thanks! We will e-mail you when there is something new on BoltSpec. Every e-mail has a one-click unsubscribe link.');
 });
 app.get('/newsletter/unsubscribe', async (req, res) => {
   const s = await db.unsubscribe(String(req.query.u || ''));
-  if (!s) return msgPage(res, 'Link not valid', `<p>${'We could not find this subscription. It may have been removed already.'}</p>`, 400);
-  msgPage(res, 'You are unsubscribed', `<p>${'You will not get any more e-mails from BoltSpec.'}</p>`);
+  if (!s) return msgPage(req, res, langOk(req.query.l), 'Link not valid', 'We could not find this subscription. It may have been removed already.', 400);
+  msgPage(req, res, langOk(s.lang), 'You are unsubscribed', 'You will not get any more e-mails from BoltSpec.');
 });
 // one-click unsubscribe from mail clients (RFC 8058)
 app.post('/newsletter/unsubscribe', express.urlencoded({ extended: false }), async (req, res) => { await db.unsubscribe(String(req.query.u || '')); res.json({ ok: true }); });
@@ -226,9 +269,9 @@ function adminAuth(req, res, next) {
   res.set('WWW-Authenticate', 'Basic realm="BoltSpec admin", charset="UTF-8"').status(401).send('Sign in required');
 }
 app.use('/admin', adminAuth);
-app.get('/admin/', (req, res) => { htmlHeaders(res).send(fill(tpl.admin, { V: VERSION, BS: bsCfg() })); });
+app.get('/admin/', (req, res) => { htmlHeaders(res).send(fill(tpl.admin, { V: VERSION, BS: bsCfg('en') })); });
 app.get('/admin', (req, res) => res.redirect('/admin/'));
-app.get('/admin/analytics/', (req, res) => { htmlHeaders(res).send(fill(tpl.analytics, { V: VERSION, BS: bsCfg() })); });
+app.get('/admin/analytics/', (req, res) => { htmlHeaders(res).send(fill(tpl.analytics, { V: VERSION, BS: bsCfg('en') })); });
 app.get('/admin/api/analytics', async (req, res) => res.json(await analytics.report(req.query.days)));
 app.get('/admin/api/stats', async (req, res) => res.json({ ...(await db.stats()), mail: mail.MODE, campaign: mail.campaignStatus() }));
 app.get('/admin/api/subscribers', async (req, res) => res.json(await db.list(String(req.query.q || ''), String(req.query.status || ''))));
@@ -236,7 +279,7 @@ app.get('/admin/api/subscribers.csv', async (req, res) => {
   const rows = await db.list('', 'confirmed', 100000);
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="boltspec-subscribers-${new Date().toISOString().slice(0, 10)}.csv"` });
-  res.send('﻿email,confirmed_at\n' + rows.map((r) => [q(r.email), new Date(r.confirmed_at).toISOString()].join(',')).join('\n'));
+  res.send('﻿email,language,confirmed_at\n' + rows.map((r) => [q(r.email), q(r.lang || 'en'), new Date(r.confirmed_at).toISOString()].join(',')).join('\n'));
 });
 app.delete('/admin/api/subscribers/:id', async (req, res) => { await db.remove(Number(req.params.id) || 0); res.json({ ok: true }); });
 app.get('/admin/api/campaigns', async (req, res) => res.json(await db.campaigns()));
@@ -245,18 +288,25 @@ app.post('/admin/api/send', async (req, res) => {
   const b = req.body || {};
   const msg = { subject: String(b.subject || '').slice(0, 200), body: String(b.body || '').slice(0, 20000) };
   if (!msg.subject || !msg.body) return res.status(400).json({ error: 'empty' });
-  if (b.test) { mail.queue({ to: String(b.test).trim(), kind: 'update', msg, unsubUrl: `${base(req)}/newsletter/unsubscribe?u=test` }); return res.json({ ok: true, test: true }); }
+  // optional Romanian version: subscribers who signed up in Romanian get it (otherwise the English one, with a Romanian footer)
+  const ro = { subject: String(b.subject_ro || '').slice(0, 200), body: String(b.body_ro || '').slice(0, 20000) };
+  if (ro.subject && ro.body) msg.ro = ro;
+  if (b.test) {
+    mail.queue({ to: String(b.test).trim(), kind: 'update', lang: 'en', msg, unsubUrl: `${base(req)}/newsletter/unsubscribe?u=test` });
+    if (msg.ro) mail.queue({ to: String(b.test).trim(), kind: 'update', lang: 'ro', msg, unsubUrl: `${base(req)}/newsletter/unsubscribe?u=test&l=ro` });
+    return res.json({ ok: true, test: true });
+  }
   if (mail.campaignStatus().running) return res.status(409).json({ error: 'running' });
   const id = await mail.startCampaign(msg, base(req));
   res.json({ ok: true, id });
 });
 
-app.use((req, res) => msgPage(res, 'Page not found', '<p>The page you are looking for does not exist or has moved.</p>', 404));
+app.use((req, res) => msgPage(req, res, /^\/ro(\/|$)/.test(req.path) ? 'ro' : i18n.DEFAULT, 'Page not found', 'The page you are looking for does not exist or has moved.', 404));
 app.use((err, req, res, next) => { console.error(err); res.status(500).json({ error: 'server' }); });
 
 Promise.all([build(), db.init(analytics.SCHEMA)]).then(() => {
   const server = app.listen(PORT, () => {
-    console.log(`BoltSpec started: http://localhost:${PORT} · ${data.ALLS.length} series · e-mail: ${mail.MODE}${BMC ? ' · donations: ' + BMC : ''}`);
+    console.log(`BoltSpec started: http://localhost:${PORT} · ${data.ALLS.length} series · languages: ${i18n.LANGS.map((l) => l === i18n.DEFAULT ? l : `${l} (${i18n.dataCount(l)} data strings)`).join(', ')} · e-mail: ${mail.MODE}${BMC ? ' · donations: ' + BMC : ''}`);
     if (!process.env.SECRET) console.warn('! SECRET is not set: page tokens reset on every restart.');
     if (!ADMIN_PASSWORD) console.warn('! ADMIN_PASSWORD is not set: the admin area is off.');
     if (!BMC) console.warn('! BMC_HANDLE is not set: the "Buy me a coffee" button is hidden.');

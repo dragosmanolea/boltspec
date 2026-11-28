@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const D = require('./dataset'); // same object torque.js uses, so the clean-up below applies to both (local-data/ when running locally)
+const i18n = require('./i18n');
 const S = D.S;
 const NAMES = D.NAMES || {};
 clean(D);
@@ -58,7 +59,7 @@ const BRANDS = [
 ];
 const brandOf = (s) => (BRANDS.find(([, f]) => f(s)) || ['BMW'])[0];
 const make = (s) => (/^RR/.test(s) ? 'Rolls-Royce' : brandOf(s) === 'MINI' ? 'MINI' : 'BMW');
-const label = (s) => { const m = make(s), n = (NAMES[s] || '').replace(new RegExp('^' + m + '\\s*'), ''); return `${m} ${s}${n ? ' ' + n : ''}`; }; // "BMW F10 5 Series Sedan", "MINI R56 Hatch (2006–13)"
+const label = (s, lang = 'en') => { const m = make(s), n = i18n.seriesName((NAMES[s] || '').replace(new RegExp('^' + m + '\\s*'), ''), lang); return `${m} ${s}${n ? ' ' + n : ''}`; }; // "BMW F10 5 Series Sedan" (ro: "BMW F10 Seria 5 Sedan")
 
 // One series: its rows (with series/engine lists narrowed to it), the strings they use (re-numbered), capacities.
 const memo = new Map();
@@ -107,43 +108,66 @@ function slice(series) {
   const map = new Map(), S2 = [];
   const use = (i) => { if (!Number.isInteger(i) || i < 0) return i; if (!map.has(i)) { map.set(i, S2.length); S2.push(S[i]); } return map.get(i); };
   rows.forEach((n) => { [1, 2, 3, 4, 5, 6, 9, 10].forEach((c) => { n[c] = use(n[c]); }); n[7] = n[7].map(use); n[8] = n[8].map(use); });
+  // capacity tables (the old machine-translated nr/rr fields are not sent; translations come from src/torque-data.<lang>.json)
   const C = D.C.filter((c) => (c.s.length ? c.s.includes(series) : c.e.some((e) => engs.has(e))))
-    .map((c) => ({ ...c, s: c.s.length ? [series] : [], e: c.e.filter((e) => engs.has(e)) }));
+    .map(({ nr, rr, ...c }) => ({ ...c, s: c.s.length ? [series] : [], e: c.e.filter((e) => engs.has(e)) }));
   const out = { S: S2, R: rows, LH: LHn, C };
   // pre-serialised once; the per-visitor watermark is appended to S when sending
   const json = JSON.stringify(out);
   const groups = {}; rows.forEach((n) => { groups[n[0]] = (groups[n[0]] || 0) + 1; });
   // the watermark goes at the end of S, so no index moves
-  const res = { json, sEnd: json.indexOf('],"R":['), rows: rows.length, groups };
+  const res = { json, sEnd: json.indexOf('],"R":['), rows: rows.length, groups, out };
   memo.set(series, res);
   return res;
 }
+// The same slice in another language: translated strings replace the English ones (same indexes, so rows are untouched),
+// SX keeps the English original of every translated string (search, favourites, tooltips), capacity tables are translated.
+const memoL = new Map();
+function sliceL(series, lang) {
+  if (!lang || lang === i18n.DEFAULT) return slice(series);
+  const key = lang + ':' + series;
+  if (memoL.has(key)) return memoL.get(key);
+  const b = slice(series), o = b.out, tr = (x) => i18n.td(lang, x);
+  const SX = {};
+  const S3 = o.S.map((x, i) => { const r = typeof x === 'string' ? tr(x) : null; if (r) { SX[i] = x; return r; } return x; });
+  const C = o.C.map((c) => {
+    const n = tr(c.n), re = c.r.map((r) => (tr(r[0]) ? r[0] : null));
+    return { ...c, n: n || c.n, ne: n ? c.n : undefined, r: c.r.map((r) => [tr(r[0]) || r[0], tr(r[1]) || r[1], r[2]]), re: re.some(Boolean) ? re : undefined };
+  });
+  const json = JSON.stringify({ S: S3, R: o.R, LH: o.LH, C, SX });
+  const res = { ...b, json, sEnd: json.indexOf('],"R":['), out: undefined };
+  memoL.set(key, res);
+  return res;
+}
 // JSON for one visitor: same data, plus an unused string that identifies who received it (traceable if copied)
-function sliceJson(series, mark) {
-  const { json, sEnd } = slice(series);
+function sliceJson(series, mark, lang) {
+  const { json, sEnd } = sliceL(series, lang);
   return json.slice(0, sEnd) + ',' + JSON.stringify(mark) + json.slice(sEnd);
 }
 
 // What a car page shows without JavaScript: groups with counts and a few common values.
 // category → the part people usually look for in it
 const POPULAR = [['wheels', /wheel (bolt|stud|nut)|lug/i], ['drainplug', /^(?!.*coolant).*(oil drain|drain plug.*oil|oil.*drain plug)/i], ['sparkplugs', /spark plug/i], ['brakes', /caliper (at|to) (swivel|wheel)|brake carrier|guide bolt|brake disc/i], ['oilfilter', /oil filter/i], ['shocks', /shock absorber|strut/i]];
-function seo(series) {
+function seo(series, lang = 'en') {
   const { groups, rows } = slice(series);
+  const tr = (x) => i18n.td(lang, x) || x;
   const popular = [];
   for (const [id, re] of POPULAR) {
     const r = torque.lookup({ category: id, series, limit: 60 });
     if (!r.rows || !r.rows.length) continue;
     const best = r.rows.filter((x) => re.test(x.part) || re.test(x.sub));
-    popular.push({ id, name: r.category.name, rows: (best.length ? best : r.rows).slice(0, 2) });
+    popular.push({ id, name: r.category.name, rows: (best.length ? best : r.rows).slice(0, 2).map((x) => ({ ...x, part: tr(x.part), thread: x.thread && tr(x.thread) })) });
     if (popular.length >= 4) break;
   }
   return {
-    series, label: label(series), make: make(series), name: NAMES[series] || '', engines: (D.SE[series] || []).slice().sort(),
-    count: rows, groups: Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([g, n]) => ({ g, name: D.GE[g] || g, n })), popular,
+    series, label: label(series, lang), make: make(series), name: i18n.seriesName(NAMES[series] || '', lang), engines: (D.SE[series] || []).slice().sort(),
+    count: rows, groups: Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([g, n]) => ({ g, name: tr(D.GE[g] || g), n })), popular,
   };
 }
 for (const s of CANDIDATES) { const n = slice(s).rows; if (NAMES[s] && n - GENERIC >= MIN_SPECS) { ALLS.push(s); SCNT[s] = n; } }
 const TOTAL = ALLS.reduce((n, s) => n + SCNT[s] - GENERIC, 0) + GENERIC; // each generic row counted once
 const INDEX = { SE: D.SE, ALLS, SCNT, GE: D.GE, meta: D.meta };
+// the public index in one language (group names translated); inlined in every car page by the loader
+const indexFor = (lang) => (!lang || lang === i18n.DEFAULT ? INDEX : { ...INDEX, GE: Object.fromEntries(Object.entries(D.GE).map(([g, n]) => [g, i18n.td(lang, n) || n])) });
 
-module.exports = { INDEX, ALLS, TOTAL, NAMES, BRANDS, brandOf, make, label, slice, sliceJson, seo, meta: D.meta };
+module.exports = { INDEX, indexFor, ALLS, TOTAL, NAMES, BRANDS, brandOf, make, label, slice, sliceL, sliceJson, seo, meta: D.meta };

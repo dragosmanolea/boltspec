@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{LANG}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,12 +8,13 @@
 <link rel="stylesheet" href="/assets/brand.css?v={{V}}">
 <link rel="stylesheet" href="/assets/boltspec.css?v={{V}}">
 <script>window.BS={{BS}};</script>
+{{HEAD}}
 <script src="/assets/shell.js?v={{V}}"></script>
 <title>{{TITLE}} · BoltSpec</title>
 <meta name="robots" content="noindex">
 </head>
 <body data-module="msg">
 <div id="u-shell"></div>
-<main id="main" class="u-wrap"><section class="u-panel bs-msg"><h1 class="u-h1">{{TITLE}}</h1>{{BODY}}<p><a class="u-btn u-btn--secondary" href="/">Back to home</a></p></section></main>
+<main id="main" class="u-wrap"><section class="u-panel bs-msg"><h1 class="u-h1">{{TITLE}}</h1>{{BODY}}<p><a class="u-btn u-btn--secondary" href="{{HOME}}">{{t:Back to home}}</a></p></section></main>
 </body>
 </html>
